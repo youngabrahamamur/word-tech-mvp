@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import func
 from datetime import datetime, date, timedelta
 from typing import List
+import csv
+import os
 
 from .database import SessionLocal
 from .model import Word, UserWordProgress
@@ -17,6 +19,45 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    finally:
+        db.close()
+
+def run_import_task():
+    print("🚀 开始后台导入单词任务...")
+    csv_path = 'scripts/ecdict.csv' # Render 上文件路径是相对于根目录的
+    
+    if not os.path.exists(csv_path):
+        print(f"❌ 找不到文件: {csv_path}")
+        return
+
+    db = SessionLocal()
+    try:
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            count = 0
+            for row in reader:
+                tags = row.get('tag', '')
+                if 'zk' in tags or 'gk' in tags: # 只导入中高考
+                    # 检查是否存在
+                    existing = db.query(Word).filter(Word.spell == row['word']).first()
+                    if not existing:
+                        word = Word(
+                            spell=row['word'],
+                            phonetic=row['phonetic'],
+                            definition=row['definition'],
+                            translation=row['translation'],
+                            exchange=row['exchange'],
+                            tag=tags
+                        )
+                        db.add(word)
+                        count += 1
+                        if count % 100 == 0:
+                            db.commit()
+                            print(f"已导入 {count} ...")
+            db.commit()
+            print(f"✅ 导入完成！共 {count} 个单词。")
+    except Exception as e:
+        print(f"❌ 导入出错: {e}")
     finally:
         db.close()
 
@@ -162,3 +203,9 @@ def lookup_word(spell: str, db: Session = Depends(get_db)):
         "translation": word.translation,
         "definition": word.definition
     }
+
+@router.get("/admin/trigger_import")
+def trigger_import(background_tasks: BackgroundTasks):
+    # 使用后台任务运行，防止请求超时
+    background_tasks.add_task(run_import_task)
+    return {"message": "正在后台导入数据，请查看 Render 日志..."}
