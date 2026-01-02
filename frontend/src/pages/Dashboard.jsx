@@ -1,0 +1,141 @@
+import React, { useEffect, useState } from 'react';
+import client from '../api/client';
+import ProgressRing from '../components/ProgressRing';
+
+const Dashboard = ({ onStartStudy, onStartReading }) => {
+  const [stats, setStats] = useState({ 
+    total_learned: 0, 
+    today_task: 15, // 默认给个值防止除以0看起来丑
+    streak_days: 0, 
+    vocabulary_limit: 880 
+  });
+  
+  // 模拟用户昵称，后期可从后端取
+  const username = "Scholar"; 
+
+  useEffect(() => {
+    client.get('/user/dashboard').then(setStats).catch(err => {
+      console.log("用默认数据渲染");
+    });
+  }, []);
+
+  // 计算总体进度的百分比
+  const totalPercent = Math.min(100, Math.round((stats.total_learned / stats.vocabulary_limit) * 100));
+
+  return (
+    <div className="min-h-screen bg-[#F5F7FA] p-6 pb-24 font-sans text-gray-800">
+      
+      {/* 1. Header: 欢迎语 + 头像 */}
+      <header className="flex justify-between items-center mb-8 pt-2">
+        <div>
+          <p className="text-gray-400 text-sm font-medium mb-1">Welcome back,</p>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">{username} 👋</h1>
+        </div>
+        <div className="w-12 h-12 bg-gradient-to-tr from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-200">
+          W
+        </div>
+      </header>
+
+      {/* 2. Bento Grid 布局核心区域 */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        
+        {/* 卡片 A: 今日核心任务 (占据左侧大块) */}
+        <div className="bg-white col-span-1 row-span-2 rounded-[30px] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center relative overflow-hidden border border-gray-100">
+           {/* 背景装饰 */}
+           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+           
+           <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Daily Goal</h3>
+           <ProgressRing 
+              radius={60} 
+              stroke={10} 
+              progress={12} // 这里应该是 stats.real_progress，目前模拟 12
+              total={stats.today_task} 
+              colorStart="#3b82f6" 
+              colorEnd="#8b5cf6"
+           />
+           <div className="mt-4 text-center">
+             <p className="text-xs text-gray-400">Target</p>
+             <p className="font-bold text-lg">{stats.today_task} Words</p>
+           </div>
+        </div>
+
+        {/* 卡片 B: 连续打卡 (右上) */}
+        <div className="bg-orange-50 col-span-1 rounded-[24px] p-4 flex flex-col justify-center items-start border border-orange-100 relative overflow-hidden">
+           <div className="absolute right-[-10px] top-[-10px] text-6xl opacity-20">🔥</div>
+           <p className="text-orange-600 text-xs font-bold uppercase">Streak</p>
+           <div className="flex items-baseline mt-1">
+             <span className="text-3xl font-black text-orange-500">{stats.streak_days}</span>
+             <span className="text-xs text-orange-400 ml-1 font-bold">Days</span>
+           </div>
+        </div>
+
+        {/* 卡片 C: 总词汇量 (右下) */}
+        <div className="bg-blue-50 col-span-1 rounded-[24px] p-4 flex flex-col justify-center items-start border border-blue-100 relative overflow-hidden">
+           <div className="absolute right-[-10px] bottom-[-10px] text-6xl opacity-20">🏆</div>
+           <p className="text-blue-600 text-xs font-bold uppercase">Mastered</p>
+           <div className="flex items-baseline mt-1">
+             <span className="text-3xl font-black text-blue-500">{stats.total_learned}</span>
+             <span className="text-xs text-blue-400 ml-1 font-bold">/ {stats.vocabulary_limit}</span>
+           </div>
+        </div>
+      </div>
+
+      {/* 3. 总体进度条 (长条) */}
+      <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 mb-8">
+        <div className="flex justify-between items-end mb-2">
+          <span className="font-bold text-gray-700">Level Progress</span>
+          <span className="text-sm font-bold text-purple-600">{totalPercent}%</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+          <div 
+            className="bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 h-3 rounded-full transition-all duration-1000"
+            style={{ width: `${totalPercent}%` }}
+          ></div>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">You are crushing it! Keep going.</p>
+      </div>
+
+      {/* 4. 功能入口 (大按钮) */}
+      <h3 className="text-xl font-bold text-gray-900 mb-4">Start Learning</h3>
+      
+      <div className="space-y-4">
+        {/* 背单词入口 */}
+        <button 
+          onClick={onStartStudy}
+          className="w-full group bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-transparent hover:border-blue-200 transition-all active:scale-[0.98] flex items-center"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-3xl shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
+            ⚡️
+          </div>
+          <div className="ml-4 text-left flex-1">
+            <h4 className="text-lg font-bold text-gray-800">Flashcards</h4>
+            <p className="text-sm text-gray-400">Review today's queue</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+            ➜
+          </div>
+        </button>
+
+        {/* 阅读入口 */}
+        <button 
+          onClick={onStartReading}
+          className="w-full group bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-transparent hover:border-purple-200 transition-all active:scale-[0.98] flex items-center"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-3xl shadow-lg shadow-purple-200 group-hover:scale-110 transition-transform">
+            🧠
+          </div>
+          <div className="ml-4 text-left flex-1">
+            <h4 className="text-lg font-bold text-gray-800">AI Reading</h4>
+            <p className="text-sm text-gray-400">Contextual learning</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+            ➜
+          </div>
+        </button>
+      </div>
+
+    </div>
+  );
+};
+
+export default Dashboard;
