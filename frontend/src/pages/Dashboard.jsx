@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import client from '../api/client';
 import ProgressRing from '../components/ProgressRing';
+// 1. 引入 Clerk 组件
+import { useUser, UserButton } from "@clerk/clerk-react";
 
 const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWriting, onStartGrammar }) => {
+  // 2. 获取当前用户信息
+  const { user } = useUser();
+
   const [stats, setStats] = useState({ 
     total_learned: 0, 
     today_task: 15, // 默认给个值防止除以0看起来丑
@@ -10,13 +15,9 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
     vocabulary_limit: 880 
   });
   
-  // 模拟用户昵称，后期可从后端取
-  const username = "Scholar"; 
 
   useEffect(() => {
-    client.get('/user/dashboard').then(setStats).catch(err => {
-      console.log("用默认数据渲染");
-    });
+    client.get('/user/dashboard').then(setStats).catch(console.error);
   }, []);
 
   // 计算总体进度的百分比
@@ -29,10 +30,10 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
       <header className="flex justify-between items-center mb-8 pt-2">
         <div>
           <p className="text-gray-400 text-sm font-medium mb-1">Welcome back,</p>
-          <h1 className="text-3xl font-black tracking-tight text-gray-900">{username} 👋</h1>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">{user?.firstName || user?.username || "Scholar"} 👋</h1>
         </div>
-        <div className="w-12 h-12 bg-gradient-to-tr from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-200">
-          W
+	<div className="scale-125"> {/* 稍微放大一点，更好看 */}
+          <UserButton afterSignOutUrl="/" />
         </div>
       </header>
 
