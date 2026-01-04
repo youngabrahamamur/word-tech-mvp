@@ -31,6 +31,9 @@ client = OpenAI(
 class GrammarRequest(BaseModel):
     sentence: str
 
+class TargetUpdate(BaseModel):
+    target: int
+
 router = APIRouter()
 
 # 依赖注入：自动从 Header 获取 User ID
@@ -95,7 +98,7 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
     # 2. 剩余待复习/新词 (今日任务)
     # 逻辑：找出 next_review <= now 的词 + 还没背的新词(这里简单模拟一下，假设每日固定20个)
     # 为了 MVP 简单展示，我们直接查 "queue" 接口同样的逻辑，看有多少个
-    today_count = 15 # 暂时写个模拟数据，或者你可以复用 get_study_queue 的计数逻辑
+    daily_target = 15 # 暂时写个模拟数据，或者你可以复用 get_study_queue 的计数逻辑
     
     # 3. 真实：获取打卡天数 === 修改了这里 ===
     streak_days = 0
@@ -105,6 +108,7 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
 
     if user_stats:
         streak_days = user_stats.streak_days
+        daily_target = user_stats.daily_target or 15 # 获取数据库里的目标
         # 如果数据库里的日期是今天，就用数据库的值；如果不是今天（说明今天还没学），就是0
         if user_stats.last_study_date and user_stats.last_study_date.date() == date.today():
             daily_progress = user_stats.daily_progress
@@ -113,7 +117,7 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
     
     return {
         "total_learned": total_learned,
-        "today_task": today_count,
+        "today_task": daily_target,
         "streak_days": streak_days,
         "vocabulary_limit": 880, # 假设是中考大纲词汇量
         "daily_progress": daily_progress # <--- 返回给前端的新字段
@@ -439,6 +443,19 @@ def analyze_grammar(req: GrammarRequest):
     except Exception as e:
         print(f"Grammar AI Error: {e}")
         raise HTTPException(status_code=500, detail="Analysis failed")
+
+@router.post("/user/update_target")
+def update_target(data: TargetUpdate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    if not user_stats:
+        # 如果是新用户还没学过习，先创建记录
+        user_stats = UserStats(user_id=user_id, daily_target=data.target)
+        db.add(user_stats)
+    else:
+        user_stats.daily_target = data.target
+    
+    db.commit()
+    return {"status": "ok", "new_target": data.target}
 
 @router.get("/word/lookup")
 def lookup_word(spell: str, db: Session = Depends(get_db)):

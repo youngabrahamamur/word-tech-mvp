@@ -24,6 +24,21 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
   // 计算总体进度的百分比
   const totalPercent = Math.min(100, Math.round((stats.total_learned / stats.vocabulary_limit) * 100));
 
+  const handleEditTarget = () => {
+    const newTarget = prompt("请输入新的每日单词目标 (例如 20):", stats.today_task);
+    if (newTarget && !isNaN(newTarget) && newTarget > 0) {
+      // 乐观更新 UI
+      setStats({ ...stats, today_task: parseInt(newTarget) });
+      
+      // 发送请求
+      client.post('/user/update_target', { target: parseInt(newTarget) })
+        .catch(err => {
+          console.error(err);
+          alert("修改失败");
+        });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-6 pb-24 font-sans text-gray-800">
       
@@ -55,8 +70,14 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
               colorStart="#3b82f6" 
               colorEnd="#8b5cf6"
            />
-           <div className="mt-4 text-center">
-             <p className="text-xs text-gray-400">Target</p>
+           <div 
+             className="mt-4 text-center cursor-pointer hover:opacity-70 transition"
+             onClick={handleEditTarget}
+             title="点击修改目标"
+           >
+             <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
+               Target ✏️
+             </p>
              <p className="font-bold text-lg">{stats.today_task} Words</p>
            </div>
         </div>
