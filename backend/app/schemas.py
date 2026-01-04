@@ -29,3 +29,19 @@ class QuizItem(BaseModel):
     options: List[str]
     answer: str
     explanation: str # 让 AI 给个解析，更人性化
+
+# 单个错题提交模型
+class MistakeCreate(BaseModel):
+    question: str
+    options: List[str]
+    correct_answer: str
+    user_answer: str
+    explanation: str
+    from_article_title: str
+
+# 错题返回模型
+class MistakeDTO(MistakeCreate):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True

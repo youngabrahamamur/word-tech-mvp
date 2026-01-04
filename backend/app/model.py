@@ -55,3 +55,15 @@ class UserStats(Base):
     streak_days = Column(Integer, default=0)
     last_study_date = Column(DateTime, nullable=True) # 上次打卡日期
     total_learned_count = Column(Integer, default=0)
+
+class QuizMistake(Base):
+    __tablename__ = "quiz_mistakes"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, default=1, index=True)
+    question = Column(Text)
+    options = Column(JSON)
+    correct_answer = Column(String)
+    user_answer = Column(String)
+    explanation = Column(Text)
+    from_article_title = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

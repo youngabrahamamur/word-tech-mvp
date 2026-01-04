@@ -78,6 +78,21 @@ const Dashboard = ({ onStartStudy, onStartReading }) => {
              <span className="text-xs text-blue-400 ml-1 font-bold">/ {stats.vocabulary_limit}</span>
            </div>
         </div>
+
+	{/* 新增卡片 D: 错题本入口 (加在 grid 里) */}
+        <div 
+          onClick={props.onOpenMistakes} // 需要从父组件传下来
+          className="bg-red-50 col-span-2 rounded-[24px] p-4 flex items-center justify-between border border-red-100 cursor-pointer active:scale-95 transition"
+        >
+           <div className="flex items-center gap-3">
+             <div className="bg-red-100 p-2 rounded-full text-xl">📕</div>
+             <div>
+               <h4 className="font-bold text-red-800">错题本</h4>
+               <p className="text-xs text-red-400">Review Mistakes</p>
+             </div>
+           </div>
+           <div className="text-red-400">➜</div>
+        </div>
       </div>
 
       {/* 3. 总体进度条 (长条) */}

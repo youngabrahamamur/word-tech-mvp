@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from .database import SessionLocal
-from .model import Word, UserWordProgress
-from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem
+from .model import Word, UserWordProgress, QuizMistake
+from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO
 from .srs_algo import calculate_review
 
 from .model import Article, UserStats # 记得导入
@@ -267,6 +267,45 @@ def generate_quiz(article_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"❌ AI Error Details: {e}") # 这一行非常重要，看终端报错
         raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+
+# 1. 批量保存错题 (在测验结算时调用)
+@router.post("/mistakes/batch_add")
+def add_mistakes(mistakes: List[MistakeCreate], db: Session = Depends(get_db)):
+    user_id = 1
+    for m in mistakes:
+        # 简单查重：防止同一道题重复存 (可选)
+        exists = db.query(QuizMistake).filter(
+            QuizMistake.user_id == user_id, 
+            QuizMistake.question == m.question
+        ).first()
+        
+        if not exists:
+            new_mistake = QuizMistake(
+                user_id=user_id,
+                question=m.question,
+                options=m.options,
+                correct_answer=m.correct_answer,
+                user_answer=m.user_answer,
+                explanation=m.explanation,
+                from_article_title=m.from_article_title
+            )
+            db.add(new_mistake)
+    
+    db.commit()
+    return {"status": "ok", "saved_count": len(mistakes)}
+
+# 2. 获取所有错题
+@router.get("/mistakes/list", response_model=List[MistakeDTO])
+def get_mistakes(db: Session = Depends(get_db)):
+    user_id = 1
+    return db.query(QuizMistake).filter(QuizMistake.user_id == user_id).order_by(QuizMistake.id.desc()).all()
+
+# 3. 移除错题 (已掌握)
+@router.delete("/mistakes/{mistake_id}")
+def delete_mistake(mistake_id: int, db: Session = Depends(get_db)):
+    db.query(QuizMistake).filter(QuizMistake.id == mistake_id).delete()
+    db.commit()
+    return {"status": "deleted"}
 
 @router.get("/word/lookup")
 def lookup_word(spell: str, db: Session = Depends(get_db)):

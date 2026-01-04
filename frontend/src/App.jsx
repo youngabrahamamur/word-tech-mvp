@@ -4,6 +4,7 @@ import FlashCard from './components/FlashCard';
 import ReadingList from './pages/ReadingList';
 import ArticleReader from './pages/ArticleReader';
 import Dashboard from './pages/Dashboard';
+import MistakeBook from './pages/MistakeBook';
 
 function App() {
   const { queue, fetchQueue, isLoading, isFinished } = useStudyStore();
@@ -23,6 +24,7 @@ function App() {
             setView('home');
           }}
           onStartReading={() => setView('reading')}
+	  onOpenMistakes={() => setView('mistakes')} // <--- 新增
         />
       );
     }
@@ -42,6 +44,9 @@ function App() {
             <ReadingList onSelectArticle={(id) => { setCurrentArticleId(id); setView('article'); }} />
         </div>
       );
+    }
+    if (view === 'mistakes') {
+      return <MistakeBook onBack={() => setView('dashboard')} />;
     }
 
     // === 3. 背单词 (Home) ===

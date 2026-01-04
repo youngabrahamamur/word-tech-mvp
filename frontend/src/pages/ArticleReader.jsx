@@ -107,6 +107,7 @@ const ArticleReader = ({ articleId, onBack }) => {
       {showQuiz && (
         <QuizModal 
           articleId={articleId} 
+	  articleTitle={article.title} // <--- 传进去标题
           onClose={() => setShowQuiz(false)} 
         />
       )}

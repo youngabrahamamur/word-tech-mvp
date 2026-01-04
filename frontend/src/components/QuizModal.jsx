@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import client from '../api/client';
 
-const QuizModal = ({ articleId, onClose }) => {
+const QuizModal = ({ articleId, articleTitle, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -10,6 +10,7 @@ const QuizModal = ({ articleId, onClose }) => {
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false); // 是否全部答完
   const [error, setError] = useState(null);
+  const [wrongQuestions, setWrongQuestions] = useState([]); // <--- 新增：存错题数据
 
   // 1. 初始化：请求 AI 生成题目
   useEffect(() => {
@@ -35,16 +36,24 @@ const QuizModal = ({ articleId, onClose }) => {
   // 3. 提交答案
   const handleSubmit = () => {
     if (!selectedOption) return;
-    
     setIsSubmitted(true);
-    // 假设后端返回 answer: "A"，选项是 "A. xxxx"
-    // 我们取选项的第一个字符来对比
+    
     const currentQ = questions[currentIndex];
-    const correctConfig = currentQ.answer.trim().toUpperCase(); // "A"
-    const userConfig = selectedOption.charAt(0).toUpperCase(); // "A" from "A. xxx"
+    const correctConfig = currentQ.answer.trim().toUpperCase(); 
+    const userConfig = selectedOption.charAt(0).toUpperCase(); 
 
     if (correctConfig === userConfig) {
       setScore(score + 1);
+    } else {
+      // === ❌ 答错了！记录下来 ===
+      setWrongQuestions(prev => [...prev, {
+        question: currentQ.question,
+        options: currentQ.options,
+        correct_answer: currentQ.answer,
+        user_answer: userConfig,
+        explanation: currentQ.explanation,
+        from_article_title: articleTitle || "Unknown Article"
+      }]);
     }
   };
 
@@ -86,6 +95,15 @@ const QuizModal = ({ articleId, onClose }) => {
 
   // === 界面 C: 结算页 ===
   if (isFinished) {
+    // === 在显示结算页前，静默提交错题 ===
+    // 使用 useEffect 避免重复提交
+    useEffect(() => {
+        if (wrongQuestions.length > 0) {
+            client.post('/mistakes/batch_add', wrongQuestions)
+                .catch(e => console.error("保存错题失败", e));
+        }
+    }, []); // 这里的空依赖可能需要调整，或者直接在 render 里发请求（不推荐），最好是加个 sent 状态位
+
     return (
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-slideUp">
         <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 relative overflow-hidden">
@@ -96,6 +114,7 @@ const QuizModal = ({ articleId, onClose }) => {
           <h2 className="text-2xl font-black text-gray-800 mb-2">测试完成!</h2>
           <p className="text-gray-500 mb-6">
             你答对了 <span className="text-blue-600 font-bold text-xl">{score}</span> / {questions.length} 题
+	    {wrongQuestions.length > 0 && <span className="block text-sm text-red-400 mt-2">({wrongQuestions.length} 道错题已加入错题本)</span>}
           </p>
           <button 
             onClick={onClose}
