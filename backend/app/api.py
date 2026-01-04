@@ -5,13 +5,27 @@ from datetime import datetime, date, timedelta
 from typing import List
 import csv
 import os
+import json
+import re # 引入正则库
+from dotenv import load_dotenv
+from openai import OpenAI
 
 from .database import SessionLocal
 from .model import Word, UserWordProgress
-from .schemas import WordDTO, StudySubmit, ArticleDTO
+from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem
 from .srs_algo import calculate_review
 
 from .model import Article, UserStats # 记得导入
+
+# 1. 加载本地 .env 文件 (否则读不到 API Key)
+load_dotenv()
+
+# 2. 初始化 DeepSeek 客户端
+# 即使部署到云端，这段代码也兼容（云端会自动注入环境变量，本地则读取 .env）
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+)
 
 router = APIRouter()
 
@@ -184,6 +198,75 @@ def get_article_detail(article_id: int, db: Session = Depends(get_db)):
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     return article
+
+@router.post("/reading/{article_id}/quiz", response_model=List[QuizItem])
+def generate_quiz(article_id: int, db: Session = Depends(get_db)):
+    # 1. 查出文章
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    # 2. 调用 DeepSeek
+    print(f"🤖 AI正在为文章 {article.title} 出题...") # 加个日志方便调试
+
+    prompt = f"""
+    Based on the text below, create 3 multiple-choice questions for a middle school student.
+
+    Text:
+    {article.content}
+
+    You MUST return the result as a pure JSON list.
+    Strict format requirements:
+    1. Do not use Markdown formatting (no ```json or ```).
+    2. The root element must be a LIST [].
+    3. Each item must have: "question", "options" (list of 4 strings), "answer" (just A, B, C, or D), and "explanation".
+
+    Example:
+    [
+      {{
+        "question": "What is the main idea?",
+        "options": ["A. Idea 1", "B. Idea 2", "C. Idea 3", "D. Idea 4"],
+        "answer": "A",
+        "explanation": "Because..."
+      }}
+    ]
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1, # 降低随机性，保证格式稳定
+            response_format={"type": "json_object"} # 强制 JSON
+        )
+        content = response.choices[0].message.content
+        print(f"🤖 AI原始返回: {content}") # 打印出来看看，如果报错方便排查
+
+        # === 增强型 JSON 清洗逻辑 ===
+        # 1. 有时候 AI 还是会返回 ```json，手动去掉
+        if "```" in content:
+            content = content.replace("```json", "").replace("```", "")
+
+        # 2. 尝试解析
+        data = json.loads(content)
+
+        # 3. 兼容性处理：如果返回的是 {"quizzes": [...]} 或者是 {"questions": [...]}
+        if isinstance(data, dict):
+            for key in ["quizzes", "questions", "items"]:
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+            # 如果是字典但没找到 key，可能结构不对，强行转 list 试试?
+            # 这里的 fallback 视情况而定，通常上面能解决
+
+        # 4. 如果本身就是 list，直接返回
+        if isinstance(data, list):
+            return data
+
+        raise ValueError("AI returned unexpected JSON structure")
+
+    except Exception as e:
+        print(f"❌ AI Error Details: {e}") # 这一行非常重要，看终端报错
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
 
 @router.get("/word/lookup")
 def lookup_word(spell: str, db: Session = Depends(get_db)):

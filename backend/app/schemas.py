@@ -23,3 +23,9 @@ class ArticleDTO(BaseModel):
     content: str
     translation: Optional[str]
     vocab_list: List[int] # 包含的单词ID
+
+class QuizItem(BaseModel):
+    question: str
+    options: List[str]
+    answer: str
+    explanation: str # 让 AI 给个解析，更人性化

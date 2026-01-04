@@ -5,7 +5,7 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
 
 const client = axios.create({
   baseURL: baseURL,
-  timeout: 10000, // 稍微改大点，防止云端唤醒慢
+  timeout: 60000, // 稍微改大点，防止云端唤醒慢
 });
 
 // 响应拦截器：处理一下数据解包，方便后续使用

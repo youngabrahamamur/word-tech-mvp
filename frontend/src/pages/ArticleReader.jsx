@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import client from '../api/client';
+import QuizModal from '../components/QuizModal'; // <--- 1. 引入组件
 
 const ArticleReader = ({ articleId, onBack }) => {
   // 1. 所有 Hooks 必须放在最上面
@@ -7,6 +8,7 @@ const ArticleReader = ({ articleId, onBack }) => {
   const [selectedWord, setSelectedWord] = useState(null);
   const [wordDetail, setWordDetail] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false); // <--- 2. 新增状态控制弹窗
 
   // Hook 1: 加载文章
   useEffect(() => {
@@ -88,6 +90,27 @@ const ArticleReader = ({ articleId, onBack }) => {
           {renderContent()}
         </p>
       </div>
+
+      {/* === 3. 悬浮的 AI 测验按钮 === */}
+      {!selectedWord && (
+        <div className="fixed bottom-6 w-full max-w-2xl flex justify-center z-30 pointer-events-none">
+           <button 
+             onClick={() => setShowQuiz(true)}
+             className="pointer-events-auto bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-purple-200 hover:scale-105 transition-transform flex items-center gap-2 animate-fadeIn"
+           >
+             <span>✨</span> AI Challenge
+           </button>
+        </div>
+      )}
+
+      {/* === 4. 测验弹窗 === */}
+      {showQuiz && (
+        <QuizModal 
+          articleId={articleId} 
+          onClose={() => setShowQuiz(false)} 
+        />
+      )}
+
 
       {/* 底部弹窗 */}
       {selectedWord && (
