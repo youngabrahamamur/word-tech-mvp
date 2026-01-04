@@ -67,3 +67,13 @@ class QuizMistake(Base):
     explanation = Column(Text)
     from_article_title = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+# ... 现有 imports
+class UserWriting(Base):
+    __tablename__ = "user_writings"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, default=1, index=True)
+    topic = Column(String)
+    original_content = Column(Text)
+    ai_feedback = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)

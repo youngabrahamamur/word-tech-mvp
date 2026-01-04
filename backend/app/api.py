@@ -12,10 +12,10 @@ from openai import OpenAI
 
 from .database import SessionLocal
 from .model import Word, UserWordProgress, QuizMistake
-from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO
+from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO, WritingSubmit, WritingDTO
 from .srs_algo import calculate_review
 
-from .model import Article, UserStats # 记得导入
+from .model import Article, UserStats, UserWriting # 记得导入
 
 # 1. 加载本地 .env 文件 (否则读不到 API Key)
 load_dotenv()
@@ -306,6 +306,82 @@ def delete_mistake(mistake_id: int, db: Session = Depends(get_db)):
     db.query(QuizMistake).filter(QuizMistake.id == mistake_id).delete()
     db.commit()
     return {"status": "deleted"}
+
+# 1. 提交作文并获取 AI 批改
+@router.post("/writing/evaluate", response_model=WritingDTO)
+def evaluate_writing(data: WritingSubmit, db: Session = Depends(get_db)):
+    user_id = 1
+    
+    print(f"🤖 正在批改作文: {data.topic}")
+    prompt = f"""
+    Act as an English teacher. Evaluate the following student essay.
+    Topic: {data.topic}
+    Student Content: {data.content}
+    
+    Return strict JSON (no markdown code blocks):
+    {{
+        "score": 85, 
+        "comment": "General feedback...",
+        "corrections": [
+            {{"original": "wrong text", "correction": "right text", "reason": "grammar rule"}}
+        ],
+        "better_version": "A rewritten native-like version..."
+    }}
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1, # 降低随机性
+            timeout=60 # 给 DeepSeek SDK 更多时间
+        )
+        content = response.choices[0].message.content
+        print(f"📝 AI原始返回: {content}") # 打印出来方便调试
+
+        # === 增强型 JSON 清洗 ===
+        if "```" in content:
+            content = content.replace("```json", "").replace("```", "")
+        
+        feedback = json.loads(content)
+        
+        # === 存入数据库 ===
+        writing = UserWriting(
+            user_id=user_id,
+            topic=data.topic,
+            original_content=data.content,
+            ai_feedback=feedback
+        )
+        db.add(writing)
+        db.commit()
+        db.refresh(writing)
+        
+        return writing
+
+    except Exception as e:
+        print(f"❌ AI Error: {e}") # 这一行能让你看到具体报错
+        raise HTTPException(status_code=500, detail=f"AI evaluation failed: {str(e)}")
+
+# 2. 获取写作历史
+@router.get("/writing/history", response_model=List[WritingDTO])
+def get_writing_history(db: Session = Depends(get_db)):
+    user_id = 1
+    return db.query(UserWriting).filter(UserWriting.user_id == user_id).order_by(UserWriting.id.desc()).all()
+
+# 3. 随机生成一个题目 (可选小功能)
+@router.get("/writing/topic")
+def get_random_topic():
+    # 这里可以简单写死几个，或者让AI生成
+    topics = [
+        "My Favorite Hobby",
+        "A Memorable Trip",
+        "The Importance of Learning English",
+        "If I Had a Million Dollars",
+        "My Best Friend"
+    ]
+    import random
+    return {"topic": random.choice(topics)}
 
 @router.get("/word/lookup")
 def lookup_word(spell: str, db: Session = Depends(get_db)):

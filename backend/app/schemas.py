@@ -46,3 +46,20 @@ class MistakeDTO(MistakeCreate):
     created_at: datetime
     class Config:
         from_attributes = True
+
+# 提交作文的请求
+class WritingSubmit(BaseModel):
+    topic: str
+    content: str
+
+# 写作记录返回
+class WritingDTO(BaseModel): # 不要继承 WritingSubmit 了，重新定义，避免混淆
+    id: int
+    topic: str
+    # 关键修改：把 content 改成 original_content，和数据库保持一致
+    original_content: str
+    ai_feedback: Dict
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
