@@ -9,6 +9,7 @@ import json
 import re # 引入正则库
 from dotenv import load_dotenv
 from openai import OpenAI
+from pydantic import BaseModel
 
 from .database import SessionLocal
 from .model import Word, UserWordProgress, QuizMistake
@@ -26,6 +27,9 @@ client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 )
+
+class GrammarRequest(BaseModel):
+    sentence: str
 
 router = APIRouter()
 
@@ -383,6 +387,50 @@ def get_random_topic():
     import random
     return {"topic": random.choice(topics)}
 
+# 2. 语法分析接口
+@router.post("/grammar/analyze")
+def analyze_grammar(req: GrammarRequest):
+    print(f"🤖 正在分析长难句: {req.sentence}")
+
+    prompt = f"""
+    You are an expert English grammar teacher. Analyze the syntax of the following sentence for a student.
+
+    Sentence: "{req.sentence}"
+
+    Return strict JSON (no markdown block):
+    {{
+      "translation": "Translate the sentence into natural Chinese.",
+      "structure": [
+        {{"part": "Subject (主语)", "content": "The specific words", "color": "text-green-600", "bg": "bg-green-50"}},
+        {{"part": "Verb (谓语)", "content": "The specific words", "color": "text-red-600", "bg": "bg-red-50"}},
+        {{"part": "Object/Complement (宾/表)", "content": "The specific words", "color": "text-blue-600", "bg": "bg-blue-50"}},
+        {{"part": "Modifier (修饰成分)", "content": "Time/Place/Clauses...", "color": "text-gray-600", "bg": "bg-gray-50"}}
+      ],
+      "grammar_points": [
+        {{ "title": "Point name (e.g. 定语从句)", "desc": "Explanation..." }}
+      ]
+    }}
+    """
+
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1
+        )
+        content = response.choices[0].message.content
+
+        # 清洗 Markdown
+        if "```" in content:
+            content = content.replace("```json", "").replace("```", "")
+
+        return json.loads(content)
+
+    except Exception as e:
+        print(f"Grammar AI Error: {e}")
+        raise HTTPException(status_code=500, detail="Analysis failed")
+
 @router.get("/word/lookup")
 def lookup_word(spell: str, db: Session = Depends(get_db)):
     # 忽略大小写查找
@@ -407,3 +455,4 @@ def trigger_import(background_tasks: BackgroundTasks):
     # 使用后台任务运行，防止请求超时
     background_tasks.add_task(run_import_task)
     return {"message": "正在后台导入数据，请查看 Render 日志..."}
+

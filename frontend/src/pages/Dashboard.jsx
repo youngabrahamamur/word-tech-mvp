@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import client from '../api/client';
 import ProgressRing from '../components/ProgressRing';
 
-const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWriting }) => {
+const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWriting, onStartGrammar }) => {
   const [stats, setStats] = useState({ 
     total_learned: 0, 
     today_task: 15, // 默认给个值防止除以0看起来丑
@@ -161,6 +161,23 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             <p className="text-sm text-gray-400">AI correction & feedback</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
+            ➜
+          </div>
+        </button>
+
+	{/* 新增: 语法分析入口 */}
+        <button 
+          onClick={onStartGrammar}
+          className="w-full group bg-white p-4 rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-transparent hover:border-indigo-200 transition-all active:scale-[0.98] flex items-center"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-3xl shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform">
+            🔍
+          </div>
+          <div className="ml-4 text-left flex-1">
+            <h4 className="text-lg font-bold text-gray-800">Grammar Scan</h4>
+            <p className="text-sm text-gray-400">Analyze complex sentences</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
             ➜
           </div>
         </button>

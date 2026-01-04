@@ -6,6 +6,7 @@ import ArticleReader from './pages/ArticleReader';
 import Dashboard from './pages/Dashboard';
 import MistakeBook from './pages/MistakeBook';
 import WritingPage from './pages/WritingPage'; // 引入组件
+import GrammarPage from './pages/GrammarPage'; // 引入组件
 
 function App() {
   const { queue, fetchQueue, isLoading, isFinished } = useStudyStore();
@@ -27,6 +28,7 @@ function App() {
           onStartReading={() => setView('reading')}
 	  onOpenMistakes={() => setView('mistakes')} // <--- 新增
 	  onStartWriting={() => setView('writing')} // <--- 新增
+	  onStartGrammar={() => setView('grammar')} // <--- 新增
         />
       );
     }
@@ -52,6 +54,9 @@ function App() {
     }
     if (view === 'writing') {
       return <WritingPage onBack={() => setView('dashboard')} />;
+    }
+    if (view === 'grammar') {
+      return <GrammarPage onBack={() => setView('dashboard')} />;
     }
 
     // === 3. 背单词 (Home) ===
