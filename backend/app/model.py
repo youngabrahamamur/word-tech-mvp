@@ -20,7 +20,7 @@ class UserWordProgress(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     # 暂时只模拟单用户，user_id 默认 1
-    user_id = Column(Integer, default=1, index=True) 
+    user_id = Column(String, index=True) # 去掉 default=1
     word_id = Column(Integer, ForeignKey("words.id"))
     
     # SRS 核心数据
@@ -51,7 +51,7 @@ class Article(Base):
 class UserStats(Base):
     __tablename__ = "user_stats"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, unique=True)
+    user_id = Column(String, index=True) # 去掉 default=1
     streak_days = Column(Integer, default=0)
     last_study_date = Column(DateTime, nullable=True) # 上次打卡日期
     total_learned_count = Column(Integer, default=0)
@@ -59,7 +59,7 @@ class UserStats(Base):
 class QuizMistake(Base):
     __tablename__ = "quiz_mistakes"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, default=1, index=True)
+    user_id = Column(String, index=True) # 去掉 default=1
     question = Column(Text)
     options = Column(JSON)
     correct_answer = Column(String)
@@ -72,7 +72,7 @@ class QuizMistake(Base):
 class UserWriting(Base):
     __tablename__ = "user_writings"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, default=1, index=True)
+    user_id = Column(String, index=True) # 去掉 default=1
     topic = Column(String)
     original_content = Column(Text)
     ai_feedback = Column(JSON)

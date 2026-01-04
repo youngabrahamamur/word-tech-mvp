@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import func
 from datetime import datetime, date, timedelta
@@ -32,6 +32,10 @@ class GrammarRequest(BaseModel):
     sentence: str
 
 router = APIRouter()
+
+# 依赖注入：自动从 Header 获取 User ID
+def get_current_user_id(x_user_id: str = Header(...)):
+    return x_user_id
 
 def get_db():
     db = SessionLocal()
@@ -80,8 +84,7 @@ def run_import_task():
         db.close()
 
 @router.get("/user/dashboard")
-def get_user_dashboard(db: Session = Depends(get_db)):
-    user_id = 1
+def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     
     # 1. 总共已背单词数 (is_learned = 1)
     total_learned = db.query(UserWordProgress).filter(
@@ -109,8 +112,7 @@ def get_user_dashboard(db: Session = Depends(get_db)):
 
 # 1. 获取学习队列 (新词 + 需要复习的旧词)
 @router.get("/study/queue", response_model=List[WordDTO])
-def get_study_queue(db: Session = Depends(get_db)):
-    user_id = 1 # MVP固定用户
+def get_study_queue(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     
     # A. 找需要复习的词 (next_review <= now)
     review_list = db.query(Word).join(UserWordProgress).filter(
@@ -136,8 +138,7 @@ def get_study_queue(db: Session = Depends(get_db)):
 
 # 2. 提交学习结果
 @router.post("/study/submit")
-def submit_study(data: StudySubmit, db: Session = Depends(get_db)):
-    user_id = 1
+def submit_study(data: StudySubmit, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     
     # 查找或创建进度记录
     progress = db.query(UserWordProgress).filter(
@@ -274,8 +275,7 @@ def generate_quiz(article_id: int, db: Session = Depends(get_db)):
 
 # 1. 批量保存错题 (在测验结算时调用)
 @router.post("/mistakes/batch_add")
-def add_mistakes(mistakes: List[MistakeCreate], db: Session = Depends(get_db)):
-    user_id = 1
+def add_mistakes(mistakes: List[MistakeCreate], db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     for m in mistakes:
         # 简单查重：防止同一道题重复存 (可选)
         exists = db.query(QuizMistake).filter(
@@ -300,8 +300,7 @@ def add_mistakes(mistakes: List[MistakeCreate], db: Session = Depends(get_db)):
 
 # 2. 获取所有错题
 @router.get("/mistakes/list", response_model=List[MistakeDTO])
-def get_mistakes(db: Session = Depends(get_db)):
-    user_id = 1
+def get_mistakes(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     return db.query(QuizMistake).filter(QuizMistake.user_id == user_id).order_by(QuizMistake.id.desc()).all()
 
 # 3. 移除错题 (已掌握)
@@ -313,8 +312,7 @@ def delete_mistake(mistake_id: int, db: Session = Depends(get_db)):
 
 # 1. 提交作文并获取 AI 批改
 @router.post("/writing/evaluate", response_model=WritingDTO)
-def evaluate_writing(data: WritingSubmit, db: Session = Depends(get_db)):
-    user_id = 1
+def evaluate_writing(data: WritingSubmit, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     
     print(f"🤖 正在批改作文: {data.topic}")
     prompt = f"""
@@ -369,8 +367,7 @@ def evaluate_writing(data: WritingSubmit, db: Session = Depends(get_db)):
 
 # 2. 获取写作历史
 @router.get("/writing/history", response_model=List[WritingDTO])
-def get_writing_history(db: Session = Depends(get_db)):
-    user_id = 1
+def get_writing_history(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     return db.query(UserWriting).filter(UserWriting.user_id == user_id).order_by(UserWriting.id.desc()).all()
 
 # 3. 随机生成一个题目 (可选小功能)

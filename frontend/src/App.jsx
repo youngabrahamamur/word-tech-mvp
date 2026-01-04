@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+// 引入 Clerk 组件
+import { SignedIn, SignedOut, SignIn, UserButton, useUser, useAuth } from "@clerk/clerk-react";
 import useStudyStore from './stores/studyStore';
 import FlashCard from './components/FlashCard';
 import ReadingList from './pages/ReadingList';
@@ -8,12 +10,35 @@ import MistakeBook from './pages/MistakeBook';
 import WritingPage from './pages/WritingPage'; // 引入组件
 import GrammarPage from './pages/GrammarPage'; // 引入组件
 
-function App() {
+function AppContent() {
   const { queue, fetchQueue, isLoading, isFinished } = useStudyStore();
   
   // 🟢 修复1: 默认视图改为 'dashboard'
   const [view, setView] = useState('dashboard'); 
   const [currentArticleId, setCurrentArticleId] = useState(null);
+
+  // 注意：我们需要获取 Clerk 的 userId 并存起来
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
+  // 我们把 userId 存到 localStorage，方便 api/client.js 读取
+  useEffect(() => {
+    if (user) {
+        localStorage.setItem("clerk_user_id", user.id);
+    }
+  }, [user]);
+
+  // ... (NavBar 里的 🏠 旁边可以加个 <UserButton /> 显示头像) ...
+  // 在 Dashboard 顶部也可以加 <UserButton />
+  
+  // 这里只展示修改 NavBar 的示例：
+  const NavBar = () => (
+    <div className="fixed bottom-0 w-full bg-white border-t flex justify-between items-center p-3 pb-6 z-10 px-8">
+      <button onClick={() => setView('home')} className="...">背单词</button>
+      <div className="mb-1"><UserButton /></div> {/* 用户头像 */}
+      <button onClick={() => setView('reading')} className="...">阅读</button>
+    </div>
+  );
 
   // 视图渲染逻辑
   const renderView = () => {
@@ -124,6 +149,25 @@ function App() {
     <div className="min-h-screen bg-gray-50">
       {renderView()}
     </div>
+  );
+}
+
+// 新的主入口
+function App() {
+  return (
+    <>
+      <SignedOut>
+        {/* 没登录时显示登录框 */}
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <SignIn />
+        </div>
+      </SignedOut>
+      
+      <SignedIn>
+        {/* 登录后显示原本的内容 */}
+        <AppContent />
+      </SignedIn>
+    </>
   );
 }
 
