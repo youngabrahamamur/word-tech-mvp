@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, List
+from datetime import datetime
 
 # 单词返回给前端的格式
 class WordDTO(BaseModel):

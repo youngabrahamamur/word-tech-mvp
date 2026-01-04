@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import client from '../api/client';
 import ProgressRing from '../components/ProgressRing';
 
-const Dashboard = ({ onStartStudy, onStartReading }) => {
+const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes }) => {
   const [stats, setStats] = useState({ 
     total_learned: 0, 
     today_task: 15, // 默认给个值防止除以0看起来丑
@@ -81,7 +81,7 @@ const Dashboard = ({ onStartStudy, onStartReading }) => {
 
 	{/* 新增卡片 D: 错题本入口 (加在 grid 里) */}
         <div 
-          onClick={props.onOpenMistakes} // 需要从父组件传下来
+          onClick={onOpenMistakes} // 需要从父组件传下来
           className="bg-red-50 col-span-2 rounded-[24px] p-4 flex items-center justify-between border border-red-100 cursor-pointer active:scale-95 transition"
         >
            <div className="flex items-center gap-3">

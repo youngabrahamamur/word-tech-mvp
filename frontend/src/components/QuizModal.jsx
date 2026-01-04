@@ -11,6 +11,7 @@ const QuizModal = ({ articleId, articleTitle, onClose }) => {
   const [isFinished, setIsFinished] = useState(false); // 是否全部答完
   const [error, setError] = useState(null);
   const [wrongQuestions, setWrongQuestions] = useState([]); // <--- 新增：存错题数据
+  const [hasSaved, setHasSaved] = useState(false);
 
   // 1. 初始化：请求 AI 生成题目
   useEffect(() => {
@@ -26,6 +27,16 @@ const QuizModal = ({ articleId, articleTitle, onClose }) => {
         setLoading(false);
       });
   }, [articleId]);
+
+  useEffect(() => {
+    // 只有当 (1)已完成 (2)有错题 (3)还没保存过 时，才发送请求
+    if (isFinished && wrongQuestions.length > 0 && !hasSaved) {
+        setHasSaved(true); // 标记为已保存
+        client.post('/mistakes/batch_add', wrongQuestions)
+            .then(res => console.log("错题已保存:", res))
+            .catch(e => console.error("保存错题失败", e));
+    }
+  }, [isFinished]); // 监听 isFinished 的变化
 
   // 2. 处理点击选项
   const handleOptionClick = (option) => {
@@ -95,15 +106,6 @@ const QuizModal = ({ articleId, articleTitle, onClose }) => {
 
   // === 界面 C: 结算页 ===
   if (isFinished) {
-    // === 在显示结算页前，静默提交错题 ===
-    // 使用 useEffect 避免重复提交
-    useEffect(() => {
-        if (wrongQuestions.length > 0) {
-            client.post('/mistakes/batch_add', wrongQuestions)
-                .catch(e => console.error("保存错题失败", e));
-        }
-    }, []); // 这里的空依赖可能需要调整，或者直接在 render 里发请求（不推荐），最好是加个 sent 状态位
-
     return (
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-slideUp">
         <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full mx-4 relative overflow-hidden">
