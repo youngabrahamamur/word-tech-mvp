@@ -55,6 +55,7 @@ class UserStats(Base):
     streak_days = Column(Integer, default=0)
     last_study_date = Column(DateTime, nullable=True) # 上次打卡日期
     total_learned_count = Column(Integer, default=0)
+    daily_progress = Column(Integer, default=0)
 
 class QuizMistake(Base):
     __tablename__ = "quiz_mistakes"

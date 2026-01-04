@@ -12,7 +12,8 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
     total_learned: 0, 
     today_task: 15, // 默认给个值防止除以0看起来丑
     streak_days: 0, 
-    vocabulary_limit: 880 
+    vocabulary_limit: 880, 
+    daily_progress: 0 // <--- 初始化加一个 0
   });
   
 
@@ -49,7 +50,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
            <ProgressRing 
               radius={60} 
               stroke={10} 
-              progress={12} // 这里应该是 stats.real_progress，目前模拟 12
+              progress={stats.daily_progress || 0}
               total={stats.today_task} 
               colorStart="#3b82f6" 
               colorEnd="#8b5cf6"

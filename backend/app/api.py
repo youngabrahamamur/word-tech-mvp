@@ -99,15 +99,24 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
     
     # 3. 真实：获取打卡天数 === 修改了这里 ===
     streak_days = 0
+    daily_progress = 0 # 默认为0
+
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+
     if user_stats:
         streak_days = user_stats.streak_days
+        # 如果数据库里的日期是今天，就用数据库的值；如果不是今天（说明今天还没学），就是0
+        if user_stats.last_study_date and user_stats.last_study_date.date() == date.today():
+            daily_progress = user_stats.daily_progress
+        else:
+            daily_progress = 0
     
     return {
         "total_learned": total_learned,
         "today_task": today_count,
         "streak_days": streak_days,
-        "vocabulary_limit": 880 # 假设是中考大纲词汇量
+        "vocabulary_limit": 880, # 假设是中考大纲词汇量
+        "daily_progress": daily_progress # <--- 返回给前端的新字段
     }
 
 # 1. 获取学习队列 (新词 + 需要复习的旧词)
@@ -174,20 +183,23 @@ def submit_study(data: StudySubmit, db: Session = Depends(get_db), user_id: str 
     # 获取或创建用户统计
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
     if not user_stats:
-        user_stats = UserStats(user_id=user_id, streak_days=0, last_study_date=None)
+        user_stats = UserStats(user_id=user_id, streak_days=0, last_study_date=None, daily_progress=0)
         db.add(user_stats)
 
     last_date = user_stats.last_study_date.date() if user_stats.last_study_date else None
 
     if last_date == today:
-        pass # 今天已经打过卡了，不处理
+        # 今天已经学过了，累加今日进度
+        user_stats.daily_progress += 1
     elif last_date == today - timedelta(days=1):
         # 昨天打卡了，连续天数+1
         user_stats.streak_days += 1
+        user_stats.daily_progress = 1
         user_stats.last_study_date = datetime.utcnow()
     else:
-        # 断签了（或者是第一次），重置为1
+        # 断签了（或者是第一次），Streak重置为1，今日进度重置为1
         user_stats.streak_days = 1
+        user_stats.daily_progress = 1
         user_stats.last_study_date = datetime.utcnow()
 
     db.commit()
