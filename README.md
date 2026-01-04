@@ -23,7 +23,18 @@ WordTech 是一个基于大语言模型 (DeepSeek V3) 的全栈英语学习应�
 
 ## 📸 项目截图
 
-*(建议这里放几张你刚才截的图：Dashboard, Writing, Quiz 等)*
+<img width="2431" height="888" alt="Screenshot 2026-01-05 002656" src="https://github.com/user-attachments/assets/651031c1-d730-4087-b343-54276160b6ed" />
+<img width="2430" height="701" alt="Screenshot 2026-01-05 002722" src="https://github.com/user-attachments/assets/b33deb3a-d6e0-4c67-832d-5f0b6f914c7c" />
+<img width="1338" height="1059" alt="Screenshot 2026-01-05 002750" src="https://github.com/user-attachments/assets/fa7f5b5f-0fd3-496b-a408-592cb8928550" />
+<img width="1180" height="850" alt="Screenshot 2026-01-05 002812" src="https://github.com/user-attachments/assets/c22a7aca-f881-4ec3-a804-4c28f9c930a2" />
+<img width="1157" height="980" alt="Screenshot 2026-01-05 002956" src="https://github.com/user-attachments/assets/e151e1b4-5780-407f-8d1d-bdf37123bb39" />
+<img width="1131" height="639" alt="Screenshot 2026-01-05 003110" src="https://github.com/user-attachments/assets/a9d08381-f51b-4a5a-89a7-9a7930e31267" />
+
+
+
+
+
+
 
 ## 🚀 本地运行
 
