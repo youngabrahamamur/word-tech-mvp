@@ -79,3 +79,11 @@ class UserWriting(Base):
     original_content = Column(Text)
     ai_feedback = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class UserGrammarAnalysis(Base):
+    __tablename__ = "user_grammar_analyses"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, index=True)
+    sentence = Column(Text)
+    analysis_result = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)

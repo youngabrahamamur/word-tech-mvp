@@ -3,14 +3,39 @@ import client from '../api/client';
 
 const ReadingList = ({ onSelectArticle }) => {
   const [articles, setArticles] = useState([]);
+  const [generating, setGenerating] = useState(false);
+
+  const loadArticles = () => {
+    client.get('/reading/list').then(setArticles);
+  };
 
   useEffect(() => {
-    client.get('/reading/list').then(setArticles);
+    loadArticles();
   }, []);
 
+  const handleGenerate = () => {
+    setGenerating(true);
+    client.post('/reading/generate')
+      .then(() => {
+        alert("✨ 新文章生成完毕！");
+        loadArticles(); // 刷新列表
+      })
+      .catch(() => alert("生成失败，请稍后再试"))
+      .finally(() => setGenerating(false));
+  };
+
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">每日阅读</h2>
+    <div className="max-w-2xl mx-auto p-4 pb-20">
+      <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">每日阅读</h2>
+          <button 
+            onClick={handleGenerate}
+            disabled={generating}
+            className={`px-4 py-2 rounded-full text-sm font-bold text-white shadow-lg transition-all ${generating ? 'bg-gray-400' : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:scale-105'}`}
+          >
+            {generating ? "生成中..." : "✨ 生成新文"}
+          </button>
+      </div>
       <div className="space-y-4">
         {articles.map(article => (
           <div 

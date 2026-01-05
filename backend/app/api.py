@@ -10,9 +10,10 @@ import re # 引入正则库
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
+import random
 
 from .database import SessionLocal
-from .model import Word, UserWordProgress, QuizMistake
+from .model import Word, UserWordProgress, QuizMistake, UserGrammarAnalysis
 from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO, WritingSubmit, WritingDTO
 from .srs_algo import calculate_review
 
@@ -33,6 +34,9 @@ class GrammarRequest(BaseModel):
 
 class TargetUpdate(BaseModel):
     target: int
+
+class BookmarkRequest(BaseModel):
+    word_id: int
 
 router = APIRouter()
 
@@ -208,6 +212,58 @@ def submit_study(data: StudySubmit, db: Session = Depends(get_db), user_id: str 
 
     db.commit()
     return {"status": "ok", "next_review": next_date}
+
+@router.post("/reading/generate")
+def generate_new_article(db: Session = Depends(get_db)):
+    # 1. 随机选词 (模拟：从库里随机挑 5 个中考词)
+    # 实际产品中，这里应该选用户"刚加入生词本"的词
+    words = db.query(Word).filter(Word.tag.contains("zk")).order_by(func.random()).limit(5).all()
+    if not words:
+        raise HTTPException(status_code=400, detail="Word database is empty")
+        
+    word_list_str = ", ".join([w.spell for w in words])
+    word_ids = [w.id for w in words]
+    
+    print(f"🤖 Generating article with: {word_list_str}")
+
+    # 2. 调用 DeepSeek
+    prompt = f"""
+    Write a short English story (approx 150 words) for middle school students.
+    It MUST include these words: {word_list_str}.
+    
+    Return strict JSON:
+    {{
+        "title": "Title Here",
+        "content": "Story content...",
+        "translation": "Chinese translation..."
+    }}
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        data = json.loads(response.choices[0].message.content)
+        
+        # 3. 存入数据库
+        article = Article(
+            title=data['title'],
+            content=data['content'],
+            translation=data.get('translation', ''), # 兼容有的AI没返回翻译
+            difficulty="Level 2",
+            vocab_list=word_ids
+        )
+        db.add(article)
+        db.commit()
+        db.refresh(article)
+        
+        return {"status": "ok", "article_id": article.id}
+        
+    except Exception as e:
+        print(f"Gen Article Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate article")
 
 @router.get("/reading/list", response_model=List[ArticleDTO])
 def get_articles(db: Session = Depends(get_db)):
@@ -389,20 +445,27 @@ def get_writing_history(db: Session = Depends(get_db), user_id: str = Depends(ge
 # 3. 随机生成一个题目 (可选小功能)
 @router.get("/writing/topic")
 def get_random_topic():
-    # 这里可以简单写死几个，或者让AI生成
-    topics = [
-        "My Favorite Hobby",
-        "A Memorable Trip",
-        "The Importance of Learning English",
-        "If I Had a Million Dollars",
-        "My Best Friend"
-    ]
-    import random
-    return {"topic": random.choice(topics)}
+    # 原来是写死的 list，现在改成调用 AI
+    prompt = """
+    Generate ONE creative and interesting English writing topic suitable for a middle school student. 
+    Examples: "If I could fly", "My favorite season", "A day without phone".
+    Return ONLY the topic string, no quotes, no extra words.
+    """
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7 # 稍微高一点，保证创意
+        )
+        topic = response.choices[0].message.content.strip().replace('"', '')
+        return {"topic": topic}
+    except:
+        # 兜底方案
+        return {"topic": "My Best Friend"}
 
 # 2. 语法分析接口
 @router.post("/grammar/analyze")
-def analyze_grammar(req: GrammarRequest):
+def analyze_grammar(req: GrammarRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     print(f"🤖 正在分析长难句: {req.sentence}")
 
     prompt = f"""
@@ -438,11 +501,30 @@ def analyze_grammar(req: GrammarRequest):
         if "```" in content:
             content = content.replace("```json", "").replace("```", "")
 
-        return json.loads(content)
+        # 在 return json.loads(content) 之前，存入数据库
+        result_json = json.loads(content)
+    
+        # 存库
+        record = UserGrammarAnalysis(
+            user_id=user_id,
+            sentence=req.sentence,
+            analysis_result=result_json
+        )
+        db.add(record)
+        db.commit()
+
+        return result_json
 
     except Exception as e:
         print(f"Grammar AI Error: {e}")
         raise HTTPException(status_code=500, detail="Analysis failed")
+
+# 2. 新增历史记录接口
+@router.get("/grammar/history")
+def get_grammar_history(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    return db.query(UserGrammarAnalysis).filter(
+        UserGrammarAnalysis.user_id == user_id
+    ).order_by(UserGrammarAnalysis.id.desc()).all()
 
 @router.post("/user/update_target")
 def update_target(data: TargetUpdate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
@@ -475,6 +557,30 @@ def lookup_word(spell: str, db: Session = Depends(get_db)):
         "translation": word.translation,
         "definition": word.definition
     }
+
+@router.post("/word/bookmark")
+def bookmark_word(data: BookmarkRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 检查是否已经在进度表中
+    progress = db.query(UserWordProgress).filter(
+        UserWordProgress.user_id == user_id,
+        UserWordProgress.word_id == data.word_id
+    ).first()
+    
+    if progress:
+        return {"message": "Already in vocabulary list"}
+    
+    # 如果不在，创建一个新记录 (is_learned=0 表示新词)
+    new_progress = UserWordProgress(
+        user_id=user_id,
+        word_id=data.word_id,
+        is_learned=0,
+        easiness=2.5,
+        interval=0,
+        repetitions=0
+    )
+    db.add(new_progress)
+    db.commit()
+    return {"message": "Added to vocabulary"}
 
 @router.get("/admin/trigger_import")
 def trigger_import(background_tasks: BackgroundTasks):

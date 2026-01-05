@@ -6,11 +6,17 @@ const WritingPage = ({ onBack }) => {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null); // 存储批改结果
+  const [history, setHistory] = useState([]);
 
-  // 初始化：获取一个随机题目
+  // 初始化：获取一个随机题目，也获取历史
   useEffect(() => {
     client.get('/writing/topic').then(res => setTopic(res.topic));
+    loadHistory();
   }, []);
+
+  const loadHistory = () => {
+    client.get('/writing/history').then(setHistory);
+  };
 
   const handleSubmit = () => {
     if (!content.trim()) return;
@@ -19,6 +25,7 @@ const WritingPage = ({ onBack }) => {
     client.post('/writing/evaluate', { topic, content })
       .then(data => {
         setResult(data);
+	loadHistory();
         setLoading(false);
       })
       .catch(err => {
@@ -32,6 +39,22 @@ const WritingPage = ({ onBack }) => {
     setResult(null);
     setContent("");
     client.get('/writing/topic').then(res => setTopic(res.topic));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 新增：加载历史记录到主区域
+  const handleLoadHistoryItem = (item) => {
+    setTopic(item.topic);
+    setContent(item.original_content); // 或者是 item.content，取决于你 schema 怎么定义的
+    setResult({ ai_feedback: item.ai_feedback }); // 恢复结果展示
+    
+    // 滚回到顶部看结果
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 3. 新增：滚动到底部历史区
+  const scrollToHistory = () => {
+    document.getElementById('history-section')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -41,6 +64,21 @@ const WritingPage = ({ onBack }) => {
         <div className="flex items-center">
             <button onClick={onBack} className="text-2xl mr-4 hover:scale-110 transition">🏠</button>
             <h1 className="font-bold text-xl text-blue-600">写作训练</h1>
+        </div>
+	{/* 右侧功能区 */}
+        <div className="flex gap-3">
+            {/* 如果正在看结果，显示“写新文章” */}
+            {result && (
+                <button onClick={handleNewTopic} className="text-sm font-bold text-blue-500 border border-blue-100 px-3 py-1 rounded-full hover:bg-blue-50">
+                    ✍️ 写新文
+                </button>
+            )}
+            {/* 无论何时都显示“看历史” */}
+            {history.length > 0 && (
+                <button onClick={scrollToHistory} className="text-sm font-bold text-gray-500 hover:text-gray-800">
+                    📜 历史
+                </button>
+            )}
         </div>
         {!loading && !result && (
             <button onClick={handleNewTopic} className="text-sm text-blue-500 font-bold">换个题目 🎲</button>
@@ -130,6 +168,37 @@ const WritingPage = ({ onBack }) => {
                 >
                     再写一篇
                 </button>
+            </div>
+        )}
+
+	{history.length > 0 && (
+            <div id="history-section" className="mt-12 border-t pt-8"> {/* <--- ID 加在这里 */}
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-gray-400 text-sm uppercase tracking-wider">Past Writings</h3>
+                    <span className="text-xs text-gray-300">点击卡片回顾</span>
+                </div>
+                
+                <div className="space-y-4">
+                    {history.map(item => (
+                        <div 
+                            key={item.id} 
+                            onClick={() => handleLoadHistoryItem(item)}
+                            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-blue-300 transition hover:shadow-md active:scale-[0.99]"
+                        >
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-gray-800 line-clamp-1">{item.topic}</h4>
+                                <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{item.ai_feedback.score}分</span>
+                            </div>
+                            <p className="text-gray-500 text-sm line-clamp-2">{item.original_content}</p>
+                            <div className="text-xs text-gray-300 mt-2">
+                                {new Date(item.created_at).toLocaleDateString()}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                
+                {/* 底部留白，方便滚动 */}
+                <div className="h-20"></div> 
             </div>
         )}
 

@@ -160,7 +160,16 @@ const ArticleReader = ({ articleId, onBack }) => {
                >
                  <span>🔊</span> 听发音
                </button>
-               <button className="flex-1 bg-yellow-100 text-yellow-700 py-3 rounded-xl font-bold hover:bg-yellow-200 transition">
+	       <button 
+                 onClick={() => {
+                   if (wordDetail && wordDetail.id) {
+                     client.post('/word/bookmark', { word_id: wordDetail.id })
+                       .then(() => alert("✅ 已加入生词本，将出现在背单词计划中！"))
+                       .catch(err => console.error(err));
+                   }
+                 }}
+                 className="flex-1 bg-yellow-100 text-yellow-700 py-3 rounded-xl font-bold hover:bg-yellow-200 transition"
+               >
                  ⭐ 加入生词本
                </button>
             </div>
