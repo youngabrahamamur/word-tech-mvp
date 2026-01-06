@@ -4,9 +4,11 @@ import ProgressRing from '../components/ProgressRing';
 import LevelSelector from '../components/LevelSelector';
 // 1. 引入 Clerk 组件
 import { useUser, UserButton } from "@clerk/clerk-react";
+import FeedbackModal from '../components/FeedbackModal';
 
 const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWriting, onStartGrammar }) => {
   const [showLevelModal, setShowLevelModal] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   // 2. 获取当前用户信息
   const { user } = useUser();
 
@@ -51,6 +53,18 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
     });
   };
 
+  // 简单的调用逻辑
+  const handleUpgrade = () => {
+    // 加个 confirm 防止误触，或者直接跳
+    if(!confirm("Upgrade to Pro for unlimited AI access? ($2.99/mo)")) return;
+
+    client.post('/payment/create-checkout-session', { plan: 'monthly' })
+      .then(res => {
+        window.location.href = res.url;
+      })
+      .catch(err => alert("支付初始化失败"));
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-6 pb-24 font-sans text-gray-800">
       
@@ -68,6 +82,13 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
           <p className="text-gray-400 text-sm font-medium mb-1">Welcome back,</p>
           <h1 className="text-3xl font-black tracking-tight text-gray-900">{user?.firstName || user?.username || "Scholar"} 👋</h1>
         </div>
+	{/* === 🔥 新增：升级按钮 === */}
+        <button 
+          onClick={handleUpgrade}
+          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg hover:scale-105 transition animate-pulse"
+        >
+          👑 Upgrade
+        </button>
 	<div className="scale-125"> {/* 稍微放大一点，更好看 */}
           <UserButton afterSignOutUrl="/" />
         </div>
@@ -234,7 +255,20 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
           </div>
         </button>
       </div>
+      {/* === Footer 区域 === */}
+      <footer className="mt-16 border-t border-gray-200 pt-8 pb-4 text-center">
+        <div className="flex justify-center gap-6 text-sm text-gray-400 mb-4">
+          <a href="/terms" target="_blank" className="hover:text-gray-600">用户协议</a>
+          <a href="/privacy" target="_blank" className="hover:text-gray-600">隐私政策</a>
+          <button onClick={() => setShowFeedback(true)} className="hover:text-gray-600">
+            意见反馈
+          </button>
+        </div>
+        <p className="text-xs text-gray-300">© 2026 WordTech. All rights reserved.</p>
+      </footer>
 
+      {/* 挂载反馈弹窗 */}
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </div>
   );
 };

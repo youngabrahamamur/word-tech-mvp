@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard';
 import MistakeBook from './pages/MistakeBook';
 import WritingPage from './pages/WritingPage'; // 引入组件
 import GrammarPage from './pages/GrammarPage'; // 引入组件
+import TermsPage from './pages/legal/TermsPage';
+import PrivacyPage from './pages/legal/PrivacyPage';
 
 function AppContent() {
   const { queue, fetchQueue, isLoading, isFinished } = useStudyStore();
@@ -154,6 +156,12 @@ function AppContent() {
 
 // 新的主入口
 function App() {
+  // 简单的路由判断 (或者用 react-router-dom 会更好，但维持现状也不错)
+  const path = window.location.pathname;
+
+  if (path === '/terms') return <TermsPage />;
+  if (path === '/privacy') return <PrivacyPage />;
+
   return (
     <>
       <SignedOut>

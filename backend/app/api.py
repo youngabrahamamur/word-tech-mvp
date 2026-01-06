@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Request
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy import func
 from datetime import datetime, date, timedelta
@@ -11,10 +11,11 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 import random
+import stripe
 
 from .database import SessionLocal
-from .model import Word, UserWordProgress, QuizMistake, UserGrammarAnalysis
-from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO, WritingSubmit, WritingDTO
+from .model import Word, UserWordProgress, QuizMistake, UserGrammarAnalysis, UserFeedback
+from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO, WritingSubmit, WritingDTO, FeedbackCreate
 from .srs_algo import calculate_review
 
 from .model import Article, UserStats, UserWriting # 记得导入
@@ -28,6 +29,9 @@ client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 )
+
+stripe.api_key = os.getenv("STRIPE_API_KEY")
+WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 # 等级配置：数据库Tag -> AI Prompt 描述
 LEVEL_CONFIG = {
@@ -103,6 +107,99 @@ def run_import_task():
         print(f"❌ 导入出错: {e}")
     finally:
         db.close()
+
+# 新增这个辅助函数
+def check_and_consume_quota(user_id: str, db: Session, quota_type: str = "reading"):
+    """
+    quota_type: "reading" (limit 3) or "writing" (limit 1)
+    """
+    # 1. 获取用户统计
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    if not user_stats:
+        # 如果是新用户，先创建
+        user_stats = UserStats(user_id=user_id, daily_target=15, today_ai_usage=0, last_ai_date=date.today())
+        db.add(user_stats)
+        db.commit()
+        db.refresh(user_stats)
+
+    # 2. 如果是会员，且未过期，直接通过
+    if user_stats.is_pro and user_stats.pro_until and user_stats.pro_until > datetime.utcnow():
+        return True
+
+    # 3. 检查日期：如果是新的一天，重置计数器
+    if user_stats.last_ai_date != date.today():
+        user_stats.usage_reading = 0
+        user_stats.usage_writing = 0
+        user_stats.last_ai_date = date.today()
+        db.commit()
+
+    # 4. 定义限额配置
+    LIMITS = {
+        "reading": 3,
+        "writing": 1  # 写作和语法共用这个昂贵的额度
+    }
+
+    current_usage = getattr(user_stats, f"usage_{quota_type}")
+    limit = LIMITS.get(quota_type, 1)
+
+    if current_usage >= limit:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Daily limit reached for {quota_type}. Upgrade to Pro!"
+        )
+
+
+    # 5. 扣费 (计数 + 1)
+    setattr(user_stats, f"usage_{quota_type}", current_usage + 1)
+    db.commit()
+    return True
+
+@router.post("/payment/create-checkout-session")
+def create_checkout_session(plan: str = "monthly", user_id: str = Depends(get_current_user_id)):
+    # 根据 plan 选择 price_id (在 Stripe 后台看)
+    MONTHLY_PRICE_ID = "price_1SmV3GAW9YtDdqbOXN6Yzjq8"  # 👈 填入 $2.99 的那个 ID
+    YEARLY_PRICE_ID = "price_1SmVM6AW9YtDdqbOUBMeNnDd"   # 👈 填入 $29.99 的那个 ID
+
+    price_id = MONTHLY_PRICE_ID if plan == "monthly" else YEARLY_PRICE_ID
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            line_items=[{'price': price_id, 'quantity': 1}],
+            mode='subscription',
+            success_url='https://word-tech-mvp.vercel.app/dashboard?success=true',
+            cancel_url='https://word-tech-mvp.vercel.app/dashboard?canceled=true',
+            client_reference_id=user_id, # 把 user_id 传给 Stripe，回调时用
+        )
+        return {"url": checkout_session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 2. Webhook (Stripe 自动调用这个接口)
+@router.post("/payment/webhook")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # 监听 "支付成功" 事件
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        user_id = session.get('client_reference_id')
+        
+        # === 给用户开通会员 ===
+        user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+        if user_stats:
+            user_stats.is_pro = True
+            # 简单处理：给30天，严谨做法是解析 subscription 对象看具体时间
+            user_stats.pro_until = datetime.utcnow() + timedelta(days=30)
+            db.commit()
+            print(f"💰 用户 {user_id} 充值成功！")
+
+    return {"status": "success"}
 
 @router.get("/user/dashboard")
 def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
@@ -238,6 +335,8 @@ def submit_study(data: StudySubmit, db: Session = Depends(get_db), user_id: str 
 
 @router.post("/reading/generate")
 def generate_new_article(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # === ✅ 一行代码搞定鉴权与扣费 ===
+    check_and_consume_quota(user_id, db, quota_type="reading")
     # 1. 获取等级
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
     level_tag = user_stats.current_level if user_stats else "zk"
@@ -306,6 +405,8 @@ def get_article_detail(article_id: int, db: Session = Depends(get_db)):
 
 @router.post("/reading/{article_id}/quiz", response_model=List[QuizItem])
 def generate_quiz(article_id: int, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # === ✅ 一行代码搞定鉴权与扣费 ===
+    check_and_consume_quota(user_id, db, quota_type="reading")
     # 1. 获取等级
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
     level_tag = user_stats.current_level if user_stats else "zk"
@@ -417,6 +518,8 @@ def delete_mistake(mistake_id: int, db: Session = Depends(get_db)):
 # 1. 提交作文并获取 AI 批改
 @router.post("/writing/evaluate", response_model=WritingDTO)
 def evaluate_writing(data: WritingSubmit, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # === ✅ 一行代码搞定鉴权与扣费 ===
+    check_and_consume_quota(user_id, db, quota_type="writing")
     # 1. 获取等级
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
     level_tag = user_stats.current_level if user_stats else "zk"
@@ -508,6 +611,8 @@ def get_random_topic(db: Session = Depends(get_db), user_id: str = Depends(get_c
 # 2. 语法分析接口
 @router.post("/grammar/analyze")
 def analyze_grammar(req: GrammarRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # === ✅ 一行代码搞定鉴权与扣费 ===
+    check_and_consume_quota(user_id, db, quota_type="writing")
     # 1. 获取等级
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
     level_tag = user_stats.current_level if user_stats else "zk"
@@ -642,6 +747,17 @@ def update_level(data: LevelUpdate, db: Session = Depends(get_db), user_id: str 
     
     db.commit()
     return {"status": "ok", "current_level": data.level, "level_name": LEVEL_CONFIG[data.level]["name"]}
+
+@router.post("/user/feedback")
+def submit_feedback(data: FeedbackCreate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    fb = UserFeedback(
+        user_id=user_id,
+        content=data.content,
+        contact_email=data.contact_email
+    )
+    db.add(fb)
+    db.commit()
+    return {"status": "received"}
 
 @router.get("/admin/trigger_import")
 def trigger_import(background_tasks: BackgroundTasks):

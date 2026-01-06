@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Float, ForeignKey, Date
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, date
 from .database import Base
 
 class Word(Base):
@@ -58,6 +58,9 @@ class UserStats(Base):
     daily_progress = Column(Integer, default=0)
     daily_target = Column(Integer, default=15)
     current_level = Column(String, default="zk")
+    usage_reading = Column(Integer, default=0)
+    usage_writing = Column(Integer, default=0)
+    last_ai_date = Column(Date, default=date.today)
 
 class QuizMistake(Base):
     __tablename__ = "quiz_mistakes"
@@ -87,4 +90,12 @@ class UserGrammarAnalysis(Base):
     user_id = Column(String, index=True)
     sentence = Column(Text)
     analysis_result = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class UserFeedback(Base):
+    __tablename__ = "user_feedback"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String)
+    content = Column(Text)
+    contact_email = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)

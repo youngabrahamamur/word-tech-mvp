@@ -63,3 +63,7 @@ class WritingDTO(BaseModel): # 不要继承 WritingSubmit 了，重新定义，�
 
     class Config:
         from_attributes = True
+
+class FeedbackCreate(BaseModel):
+    content: str
+    contact_email: str = None

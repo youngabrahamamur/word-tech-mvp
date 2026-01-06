@@ -22,6 +22,11 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // 拦截 403 错误
+    if (error.response && error.response.status === 403) {
+      alert("⚠️ " + error.response.data.detail);
+      // 或者这里你可以触发一个全局事件，弹出一个漂亮的“去支付”弹窗
+    }
     console.error('API Error:', error);
     return Promise.reject(error);
   }
