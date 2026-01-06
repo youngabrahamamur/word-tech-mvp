@@ -29,6 +29,17 @@ client = OpenAI(
     base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 )
 
+# 等级配置：数据库Tag -> AI Prompt 描述
+LEVEL_CONFIG = {
+    "zk": {"name": "中考", "prompt": "Middle School Student (approx. 1500 vocabulary)"},
+    "gk": {"name": "高考", "prompt": "High School Student (approx. 3500 vocabulary)"},
+    "cet4": {"name": "CET-4", "prompt": "College Student (CET-4 level)"},
+    "cet6": {"name": "CET-6", "prompt": "College Student (CET-6 level)"},
+    "ky": {"name": "考研", "prompt": "Postgraduate Entrance Exam candidate"},
+    "ielts": {"name": "雅思", "prompt": "IELTS candidate (Band 7.0 target)"},
+    "toefl": {"name": "托福", "prompt": "TOEFL candidate (Score 100+ target)"},
+}
+
 class GrammarRequest(BaseModel):
     sentence: str
 
@@ -37,6 +48,9 @@ class TargetUpdate(BaseModel):
 
 class BookmarkRequest(BaseModel):
     word_id: int
+
+class LevelUpdate(BaseModel):
+    level: str
 
 router = APIRouter()
 
@@ -107,12 +121,14 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
     # 3. 真实：获取打卡天数 === 修改了这里 ===
     streak_days = 0
     daily_progress = 0 # 默认为0
+    current_level = "zk" # 默认
 
     user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
 
     if user_stats:
         streak_days = user_stats.streak_days
         daily_target = user_stats.daily_target or 15 # 获取数据库里的目标
+        current_level = user_stats.current_level or "zk"
         # 如果数据库里的日期是今天，就用数据库的值；如果不是今天（说明今天还没学），就是0
         if user_stats.last_study_date and user_stats.last_study_date.date() == date.today():
             daily_progress = user_stats.daily_progress
@@ -124,13 +140,19 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
         "today_task": daily_target,
         "streak_days": streak_days,
         "vocabulary_limit": 880, # 假设是中考大纲词汇量
-        "daily_progress": daily_progress # <--- 返回给前端的新字段
+        "daily_progress": daily_progress, # <--- 返回给前端的新字段
+        "current_level": current_level,
+        "level_display": LEVEL_CONFIG.get(current_level, {}).get("name", "中考")
     }
 
 # 1. 获取学习队列 (新词 + 需要复习的旧词)
 @router.get("/study/queue", response_model=List[WordDTO])
 def get_study_queue(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     
+    # 1. 先查用户的等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+
     # A. 找需要复习的词 (next_review <= now)
     review_list = db.query(Word).join(UserWordProgress).filter(
         UserWordProgress.user_id == user_id,
@@ -146,6 +168,7 @@ def get_study_queue(db: Session = Depends(get_db), user_id: str = Depends(get_cu
         
         new_words = db.query(Word).filter(
             Word.id.notin_(subquery),
+            Word.tag.contains(level_tag), # <--- 关键修改：只根据当前等级筛选
             Word.ai_sentence != None  # 只出有 AI 例句的词
         ).limit(limit_new).all()
         
@@ -214,10 +237,14 @@ def submit_study(data: StudySubmit, db: Session = Depends(get_db), user_id: str 
     return {"status": "ok", "next_review": next_date}
 
 @router.post("/reading/generate")
-def generate_new_article(db: Session = Depends(get_db)):
+def generate_new_article(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 1. 获取等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+    level_prompt = LEVEL_CONFIG[level_tag]["prompt"] # 获取 "IELTS candidate..."
     # 1. 随机选词 (模拟：从库里随机挑 5 个中考词)
     # 实际产品中，这里应该选用户"刚加入生词本"的词
-    words = db.query(Word).filter(Word.tag.contains("zk")).order_by(func.random()).limit(5).all()
+    words = db.query(Word).filter(Word.tag.contains(level_tag)).order_by(func.random()).limit(8).all()
     if not words:
         raise HTTPException(status_code=400, detail="Word database is empty")
         
@@ -228,7 +255,8 @@ def generate_new_article(db: Session = Depends(get_db)):
 
     # 2. 调用 DeepSeek
     prompt = f"""
-    Write a short English story (approx 150 words) for middle school students.
+    Write a short English article for a {level_prompt}.
+    Difficulty Level: {level_tag.upper()}.
     It MUST include these words: {word_list_str}.
     
     Return strict JSON:
@@ -277,7 +305,11 @@ def get_article_detail(article_id: int, db: Session = Depends(get_db)):
     return article
 
 @router.post("/reading/{article_id}/quiz", response_model=List[QuizItem])
-def generate_quiz(article_id: int, db: Session = Depends(get_db)):
+def generate_quiz(article_id: int, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 1. 获取等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+    level_prompt = LEVEL_CONFIG[level_tag]["prompt"] # 获取 "IELTS candidate..."
     # 1. 查出文章
     article = db.query(Article).filter(Article.id == article_id).first()
     if not article:
@@ -287,8 +319,8 @@ def generate_quiz(article_id: int, db: Session = Depends(get_db)):
     print(f"🤖 AI正在为文章 {article.title} 出题...") # 加个日志方便调试
 
     prompt = f"""
-    Based on the text below, create 3 multiple-choice questions for a middle school student.
-
+    Based on the text below, create 3 multiple-choice questions for a {level_prompt}.
+    Difficulty Level: {level_tag.upper()}.
     Text:
     {article.content}
 
@@ -385,10 +417,15 @@ def delete_mistake(mistake_id: int, db: Session = Depends(get_db)):
 # 1. 提交作文并获取 AI 批改
 @router.post("/writing/evaluate", response_model=WritingDTO)
 def evaluate_writing(data: WritingSubmit, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    
+    # 1. 获取等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+    level_prompt = LEVEL_CONFIG[level_tag]["prompt"] # 获取 "IELTS candidate..."
+
     print(f"🤖 正在批改作文: {data.topic}")
     prompt = f"""
-    Act as an English teacher. Evaluate the following student essay.
+    Act as an English teacher. Evaluate the {level_prompt} essay.
+    Difficulty Level: {level_tag.upper()}.
     Topic: {data.topic}
     Student Content: {data.content}
     
@@ -444,10 +481,15 @@ def get_writing_history(db: Session = Depends(get_db), user_id: str = Depends(ge
 
 # 3. 随机生成一个题目 (可选小功能)
 @router.get("/writing/topic")
-def get_random_topic():
+def get_random_topic(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 1. 获取等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+    level_prompt = LEVEL_CONFIG[level_tag]["prompt"] # 获取 "IELTS candidate..."
     # 原来是写死的 list，现在改成调用 AI
     prompt = """
-    Generate ONE creative and interesting English writing topic suitable for a middle school student. 
+    Generate ONE creative and interesting English writing topic suitable for a {level_prompt}. 
+    Difficulty Level: {level_tag.upper()}.
     Examples: "If I could fly", "My favorite season", "A day without phone".
     Return ONLY the topic string, no quotes, no extra words.
     """
@@ -466,11 +508,15 @@ def get_random_topic():
 # 2. 语法分析接口
 @router.post("/grammar/analyze")
 def analyze_grammar(req: GrammarRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 1. 获取等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+    level_prompt = LEVEL_CONFIG[level_tag]["prompt"] # 获取 "IELTS candidate..."
     print(f"🤖 正在分析长难句: {req.sentence}")
 
     prompt = f"""
-    You are an expert English grammar teacher. Analyze the syntax of the following sentence for a student.
-
+    You are an expert English grammar teacher. Analyze the syntax of the following sentence for a {level_prompt}.
+    
     Sentence: "{req.sentence}"
 
     Return strict JSON (no markdown block):
@@ -581,6 +627,21 @@ def bookmark_word(data: BookmarkRequest, db: Session = Depends(get_db), user_id:
     db.add(new_progress)
     db.commit()
     return {"message": "Added to vocabulary"}
+
+@router.post("/user/update_level")
+def update_level(data: LevelUpdate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    if data.level not in LEVEL_CONFIG:
+        raise HTTPException(status_code=400, detail="Invalid level")
+        
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    if not user_stats:
+        user_stats = UserStats(user_id=user_id, current_level=data.level)
+        db.add(user_stats)
+    else:
+        user_stats.current_level = data.level
+    
+    db.commit()
+    return {"status": "ok", "current_level": data.level, "level_name": LEVEL_CONFIG[data.level]["name"]}
 
 @router.get("/admin/trigger_import")
 def trigger_import(background_tasks: BackgroundTasks):

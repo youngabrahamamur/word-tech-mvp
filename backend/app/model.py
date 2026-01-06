@@ -57,6 +57,7 @@ class UserStats(Base):
     total_learned_count = Column(Integer, default=0)
     daily_progress = Column(Integer, default=0)
     daily_target = Column(Integer, default=15)
+    current_level = Column(String, default="zk")
 
 class QuizMistake(Base):
     __tablename__ = "quiz_mistakes"

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import client from '../api/client';
 import ProgressRing from '../components/ProgressRing';
+import LevelSelector from '../components/LevelSelector';
 // 1. 引入 Clerk 组件
 import { useUser, UserButton } from "@clerk/clerk-react";
 
 const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWriting, onStartGrammar }) => {
+  const [showLevelModal, setShowLevelModal] = useState(false);
   // 2. 获取当前用户信息
   const { user } = useUser();
 
@@ -39,12 +41,30 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
     }
   };
 
+  const handleLevelChange = (newLevel) => {
+    client.post('/user/update_level', { level: newLevel }).then(res => {
+        // 更新本地状态
+        setStats({ ...stats, current_level: res.current_level, level_display: res.level_name });
+        setShowLevelModal(false);
+        // 这里可以加个 reload 或者提示 "切换成功，下次背单词生效"
+        alert(`已切换到 ${res.level_name} 模式！后续内容将自动调整难度。`);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-6 pb-24 font-sans text-gray-800">
       
       {/* 1. Header: 欢迎语 + 头像 */}
       <header className="flex justify-between items-center mb-8 pt-2">
         <div>
+	  <div
+            onClick={() => setShowLevelModal(true)}
+            className="inline-flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm text-xs font-bold text-blue-600 mb-2 cursor-pointer border border-blue-100 hover:scale-105 transition"
+          >
+            <span>🎯</span>
+            <span>{stats.level_display || "中考"}</span>
+            <span>▼</span>
+          </div>
           <p className="text-gray-400 text-sm font-medium mb-1">Welcome back,</p>
           <h1 className="text-3xl font-black tracking-tight text-gray-900">{user?.firstName || user?.username || "Scholar"} 👋</h1>
         </div>
@@ -52,6 +72,15 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
           <UserButton afterSignOutUrl="/" />
         </div>
       </header>
+
+      {/* 弹窗挂载 */}
+      {showLevelModal && (
+        <LevelSelector 
+            currentLevel={stats.current_level} 
+            onSelect={handleLevelChange} 
+            onClose={() => setShowLevelModal(false)} 
+        />
+      )}
 
       {/* 2. Bento Grid 布局核心区域 */}
       <div className="grid grid-cols-2 gap-4 mb-6">

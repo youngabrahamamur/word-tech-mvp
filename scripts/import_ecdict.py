@@ -11,6 +11,8 @@ from backend.app.model import Word
 
 def import_data():
     csv_path = 'scripts/ecdict.csv' # 确保文件名正确
+    # 定义我们支持的标签映射
+    VALID_TAGS = ['zk', 'gk', 'cet4', 'cet6', 'ky', 'toefl', 'ielts', 'gre']
     
     if not os.path.exists(csv_path):
         print(f"Error: {csv_path} not found.")
@@ -30,7 +32,7 @@ def import_data():
                 
                 # === 核心逻辑：只导入中考(zk)和高考(gk)词汇 ===
                 # 如果你想做全量，可以去掉这个 if
-                if 'zk' in tags or 'gk' in tags:
+                if any(t in tags for t in VALID_TAGS):
                     
                     # 检查是否已存在（避免重复运行报错）
                     existing = db.query(Word).filter(Word.spell == row['word']).first()
