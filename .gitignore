@@ -6,3 +6,5 @@ myenv/
 node_modules/
 dist/
 *.pyc
+.env.production
+frontend/.env.production
