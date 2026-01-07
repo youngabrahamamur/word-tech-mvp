@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'EnWords 英语单词',
-        short_name: 'EnWords',
+        name: 'SmartCram 智能突击',
+        short_name: 'SmartCram',
         description: 'AI 驱动的英语学习助手',
         theme_color: '#ffffff',
         icons: [

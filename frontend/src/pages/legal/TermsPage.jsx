@@ -9,7 +9,7 @@ const TermsPage = () => {
       <div className="space-y-6">
         <section>
           <h2 className="text-xl font-bold mb-2">1. 服务说明</h2>
-          <p>WordTech 是一个 AI 驱动的英语学习辅助工具。我们利用人工智能技术生成内容，但不保证所有内容的 100% 准确性。</p>
+          <p>SmartCram 是一个 AI 驱动的英语学习辅助工具。我们利用人工智能技术生成内容，但不保证所有内容的 100% 准确性。</p>
         </section>
 
         <section>

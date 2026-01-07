@@ -264,7 +264,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             意见反馈
           </button>
         </div>
-        <p className="text-xs text-gray-300">© 2026 WordTech. All rights reserved.</p>
+        <p className="text-xs text-gray-300">© 2026 SmartCram. All rights reserved.</p>
       </footer>
 
       {/* 挂载反馈弹窗 */}
