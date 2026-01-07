@@ -166,8 +166,8 @@ def create_checkout_session(plan: str = "monthly", user_id: str = Depends(get_cu
         checkout_session = stripe.checkout.Session.create(
             line_items=[{'price': price_id, 'quantity': 1}],
             mode='subscription',
-            success_url='https://word-tech-mvp.vercel.app/dashboard?success=true',
-            cancel_url='https://word-tech-mvp.vercel.app/dashboard?canceled=true',
+            success_url='https://smartcram.top/?success=true',
+            cancel_url='https://smartcram.top/?canceled=true',
             client_reference_id=user_id, # 把 user_id 传给 Stripe，回调时用
         )
         return {"url": checkout_session.url}
