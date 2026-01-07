@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 // 引入 Clerk 组件
 import { SignedIn, SignedOut, SignIn, UserButton, useUser, useAuth } from "@clerk/clerk-react";
+import LandingPage from './pages/LandingPage'; // 引入新页面
 import useStudyStore from './stores/studyStore';
 import FlashCard from './components/FlashCard';
 import ReadingList from './pages/ReadingList';
@@ -165,10 +166,8 @@ function App() {
   return (
     <>
       <SignedOut>
-        {/* 没登录时显示登录框 */}
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <SignIn />
-        </div>
+	{/* 🔥 修改这里：没登录不再显示干巴巴的 SignIn，而是显示漂亮的落地页 */}
+        <LandingPage />
       </SignedOut>
       
       <SignedIn>
