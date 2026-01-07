@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Float, ForeignKey, Date
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Float, ForeignKey, Date, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
 from .database import Base
@@ -61,6 +61,9 @@ class UserStats(Base):
     usage_reading = Column(Integer, default=0)
     usage_writing = Column(Integer, default=0)
     last_ai_date = Column(Date, default=date.today)
+    is_pro = Column(Boolean, default=False)
+    pro_until = Column(DateTime, nullable=True)
+    stripe_customer_id = Column(String, nullable=True)
 
 class QuizMistake(Base):
     __tablename__ = "quiz_mistakes"
