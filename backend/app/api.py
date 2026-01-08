@@ -4,6 +4,7 @@ from sqlalchemy import func
 from datetime import datetime, date, timedelta
 from typing import List
 import csv
+import azure.cognitiveservices.speech as speechsdk
 import os
 import json
 import re # 引入正则库
@@ -35,13 +36,13 @@ WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 # 等级配置：数据库Tag -> AI Prompt 描述
 LEVEL_CONFIG = {
-    "zk": {"name": "中考", "prompt": "Middle School Student (approx. 1500 vocabulary)"},
-    "gk": {"name": "高考", "prompt": "High School Student (approx. 3500 vocabulary)"},
-    "cet4": {"name": "CET-4", "prompt": "College Student (CET-4 level)"},
-    "cet6": {"name": "CET-6", "prompt": "College Student (CET-6 level)"},
-    "ky": {"name": "考研", "prompt": "Postgraduate Entrance Exam candidate"},
-    "ielts": {"name": "雅思", "prompt": "IELTS candidate (Band 7.0 target)"},
-    "toefl": {"name": "托福", "prompt": "TOEFL candidate (Score 100+ target)"},
+    "zk": {"name": "中考", "prompt": "Middle School Student (approx. 1500 vocabulary)", "total": 1600},
+    "gk": {"name": "高考", "prompt": "High School Student (approx. 3500 vocabulary)", "total": 3500},
+    "cet4": {"name": "CET-4", "prompt": "College Student (CET-4 level)", "total": 4500},
+    "cet6": {"name": "CET-6", "prompt": "College Student (CET-6 level)", "total": 6000},
+    "ky": {"name": "考研", "prompt": "Postgraduate Entrance Exam candidate", "total": 5500},
+    "ielts": {"name": "雅思", "prompt": "IELTS candidate (Band 7.0 target)", "total": 8000},
+    "toefl": {"name": "托福", "prompt": "TOEFL candidate (Score 100+ target)", "total": 10000},
 }
 
 class GrammarRequest(BaseModel):
@@ -298,12 +299,15 @@ def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get
             daily_progress = user_stats.daily_progress
         else:
             daily_progress = 0
+
+    # 获取配置里的总数
+    vocab_limit = LEVEL_CONFIG.get(current_level, {}).get("total", 2000)
     
     return {
         "total_learned": total_learned,
         "today_task": daily_target,
         "streak_days": streak_days,
-        "vocabulary_limit": 880, # 假设是中考大纲词汇量
+        "vocabulary_limit": vocab_limit,
         "daily_progress": daily_progress, # <--- 返回给前端的新字段
         "current_level": current_level,
         "level_display": LEVEL_CONFIG.get(current_level, {}).get("name", "中考")
@@ -334,7 +338,7 @@ def get_study_queue(db: Session = Depends(get_db), user_id: str = Depends(get_cu
             Word.id.notin_(subquery),
             Word.tag.contains(level_tag), # <--- 关键修改：只根据当前等级筛选
             Word.ai_sentence != None  # 只出有 AI 例句的词
-        ).limit(limit_new).all()
+        ).order_by(func.random()).limit(limit_new).all()
         
         review_list.extend(new_words)
 
@@ -446,7 +450,7 @@ def generate_new_article(db: Session = Depends(get_db), user_id: str = Depends(g
             title=data['title'],
             content=data['content'],
             translation=data.get('translation', ''), # 兼容有的AI没返回翻译
-            difficulty="Level 2",
+            difficulty=level_tag,
             vocab_list=word_ids
         )
         db.add(article)
@@ -460,8 +464,24 @@ def generate_new_article(db: Session = Depends(get_db), user_id: str = Depends(g
         raise HTTPException(status_code=500, detail="Failed to generate article")
 
 @router.get("/reading/list", response_model=List[ArticleDTO])
-def get_articles(db: Session = Depends(get_db)):
-    return db.query(Article).order_by(Article.id.desc()).limit(10).all()
+def get_articles(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 1. 查用户等级
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    level_tag = user_stats.current_level if user_stats else "zk"
+
+    # 默认过滤条件
+    query = db.query(Article)
+
+    # 如果用户有等级设置，进行过滤
+    # 我们生成的文章在存的时候，difficulty 字段最好存对应的 tag (如 'zk', 'ielts')
+    # 但之前代码存的是 'Level 2' 这种模糊的。
+    # 建议：以后生成文章时，把 user_stats.current_level 存入 article.difficulty
+
+    # 临时方案：如果是新生成的文章，我们按 ID 倒序
+    # 更好的方案是：
+    return query.filter(Article.difficulty == level_tag).order_by(Article.id.desc()).limit(10).all()
+
+    #return query.order_by(Article.id.desc()).limit(10).all()
 
 @router.get("/reading/{article_id}", response_model=ArticleDTO)
 def get_article_detail(article_id: int, db: Session = Depends(get_db)):
@@ -469,6 +489,56 @@ def get_article_detail(article_id: int, db: Session = Depends(get_db)):
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     return article
+
+@router.get("/reading/{article_id}/audio")
+def get_article_audio(article_id: int, db: Session = Depends(get_db)):
+    # 1. 查文章
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    # 2. 定义文件名 (用文章ID命名)
+    filename = f"article_{article_id}.mp3"
+    file_path = f"static/audio/{filename}"
+    
+    # 3. 检查文件是否已存在 (缓存机制)
+    # 如果文件存在且大小不为0，直接返回 URL
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        # 生产环境 URL (注意：要把这个换成你的域名)
+        # 或者为了通用，前端只拿相对路径，自己拼域名
+        return {"audio_url": f"/static/audio/{filename}"}
+
+    # 4. 调用 Azure 生成
+    print(f"🎙️ Generating audio for article {article_id} via Azure...")
+    
+    speech_config = speechsdk.SpeechConfig(
+        subscription=os.getenv("AZURE_SPEECH_KEY"), 
+        region=os.getenv("AZURE_SPEECH_REGION")
+    )
+    
+    # 设置声音 (推荐 JennyNeural，非常自然的女声)
+    speech_config.speech_synthesis_voice_name='en-US-JennyNeural' 
+    
+    # 设置输出格式为 MP3
+    speech_config.set_speech_synthesis_output_format(speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3)
+
+    # 设置输出文件
+    audio_config = speechsdk.audio.AudioOutputConfig(filename=file_path)
+
+    # 创建合成器
+    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
+
+    # 开始合成 (这里用 speak_text_async 避免阻塞太久，但为了简单我们等待结果)
+    result = synthesizer.speak_text_async(article.content).get()
+
+    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+        return {"audio_url": f"/static/audio/{filename}"}
+    elif result.reason == speechsdk.ResultReason.Canceled:
+        cancellation_details = result.cancellation_details
+        print(f"❌ Azure TTS Error: {cancellation_details.reason}")
+        if cancellation_details.reason == speechsdk.CancellationReason.Error:
+            print(f"Error details: {cancellation_details.error_details}")
+        raise HTTPException(status_code=500, detail="TTS generation failed")
 
 @router.post("/reading/{article_id}/quiz", response_model=List[QuizItem])
 def generate_quiz(article_id: int, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):

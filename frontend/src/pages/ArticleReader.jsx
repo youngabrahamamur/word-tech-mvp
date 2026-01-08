@@ -9,6 +9,10 @@ const ArticleReader = ({ articleId, onBack }) => {
   const [wordDetail, setWordDetail] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false); // <--- 2. 新增状态控制弹窗
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioPlayer, setAudioPlayer] = useState(null);
+  const [loadingAudio, setLoadingAudio] = useState(false);
 
   // Hook 1: 加载文章
   useEffect(() => {
@@ -31,21 +35,70 @@ const ArticleReader = ({ articleId, onBack }) => {
     }
   }, [selectedWord]);
 
-  // 2. 辅助函数定义
-  const handleSpeakArticle = () => {
-    if (!article) return; // 安全检查
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    } else {
-      const utterance = new SpeechSynthesisUtterance(article.content);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      utterance.onend = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-      setIsSpeaking(true);
+  // 当文章加载时，或者用户点击播放时，去获取音频链接
+  const fetchAudio = async () => {
+    if (audioUrl) return audioUrl; // 有了就不请求了
+    
+    setLoadingAudio(true);
+    try {
+      const res = await client.get(`/reading/${articleId}/audio`);
+
+      // 我们直接用当前的 origin (域名) 拼接，或者直接用相对路径
+      const relativeUrl = res.audio_url; 
+
+      let fullUrl = relativeUrl;
+      if (import.meta.env.DEV) {
+          // 本地开发特殊处理
+          fullUrl = "http://localhost:8000" + relativeUrl;
+      } else {
+          // 生产环境：直接用 /static/... (Nginx 会处理)
+          fullUrl = relativeUrl;
+      }
+      
+      console.log("Audio URL:", fullUrl); // 打印出来看看对不对
+      setAudioUrl(fullUrl);
+      return fullUrl;
+    } catch (e) {
+      console.error(e);
+      alert("语音生成失败，请检查网络");
+    } finally {
+      setLoadingAudio(false);
     }
   };
+
+  // 2. 辅助函数定义
+  const handleSpeakArticle = async () => {
+    if (isPlaying && audioPlayer) {
+      audioPlayer.pause();
+      setIsPlaying(false);
+    } else {
+      let url = audioUrl;
+      if (!url) {
+        url = await fetchAudio(); // 第一次点，先去生成
+        if (!url) return;
+      }
+
+      // 创建或复用 Audio 对象
+      const player = audioPlayer || new Audio(url);
+      if (!audioPlayer) {
+        player.onended = () => setIsPlaying(false);
+        setAudioPlayer(player);
+      }
+      
+      player.play();
+      setIsPlaying(true);
+    }
+  };
+
+  // 退出页面时停止播放
+  useEffect(() => {
+    return () => {
+      if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0; // 重置
+      }
+    };
+  }, [audioPlayer]);
 
   const renderContent = () => {
     if (!article) return null;
@@ -76,11 +129,18 @@ const ArticleReader = ({ articleId, onBack }) => {
           <h1 className="font-bold text-lg truncate w-40">{article.title}</h1>
         </div>
 
-        <button
+	<button
           onClick={handleSpeakArticle}
-          className={`px-3 py-1 rounded-full text-sm font-bold border transition ${isSpeaking ? 'bg-red-100 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
+          disabled={loadingAudio}
+          className={`px-3 py-1 rounded-full text-sm font-bold border transition flex items-center gap-1 ${isPlaying ? 'bg-red-100 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}
         >
-          {isSpeaking ? '⏹ 停止' : '▶ 朗读全文'}
+          {loadingAudio ? (
+             <span>⏳ 生成中...</span>
+          ) : isPlaying ? (
+             <span>⏹ 停止</span> 
+          ) : (
+             <><span>▶</span> <span>真人朗读</span></>
+          )}
         </button>
       </div>
 
