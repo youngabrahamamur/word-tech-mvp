@@ -5,10 +5,12 @@ import LevelSelector from '../components/LevelSelector';
 // 1. 引入 Clerk 组件
 import { useUser, UserButton } from "@clerk/clerk-react";
 import FeedbackModal from '../components/FeedbackModal';
+import UpgradeModal from '../components/UpgradeModal';
 
 const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWriting, onStartGrammar }) => {
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   // 2. 获取当前用户信息
   const { user } = useUser();
 
@@ -65,6 +67,11 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
       .catch(err => alert("支付初始化失败"));
   }
 
+  // 修改原来的 handleUpgrade,加上兑换码
+  const handleUpgradeClick = () => {
+    setShowUpgrade(true);
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-6 pb-24 font-sans text-gray-800">
       
@@ -84,7 +91,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
         </div>
 	{/* === 🔥 新增：升级按钮 === */}
         <button 
-          onClick={handleUpgrade}
+          onClick={handleUpgradeClick}
           className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg hover:scale-105 transition animate-pulse"
         >
           👑 Upgrade
@@ -102,6 +109,9 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             onClose={() => setShowLevelModal(false)} 
         />
       )}
+
+      {/* 挂载弹窗 */}
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
 
       {/* 2. Bento Grid 布局核心区域 */}
       <div className="grid grid-cols-2 gap-4 mb-6">

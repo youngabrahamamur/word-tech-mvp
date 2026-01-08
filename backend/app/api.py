@@ -18,7 +18,7 @@ from .model import Word, UserWordProgress, QuizMistake, UserGrammarAnalysis, Use
 from .schemas import WordDTO, StudySubmit, ArticleDTO, QuizItem, MistakeCreate, MistakeDTO, WritingSubmit, WritingDTO, FeedbackCreate
 from .srs_algo import calculate_review
 
-from .model import Article, UserStats, UserWriting # 记得导入
+from .model import Article, UserStats, UserWriting, RedemptionCode 
 
 # 1. 加载本地 .env 文件 (否则读不到 API Key)
 load_dotenv()
@@ -55,6 +55,10 @@ class BookmarkRequest(BaseModel):
 
 class LevelUpdate(BaseModel):
     level: str
+
+# 兑换接口请求体
+class RedeemRequest(BaseModel):
+    code: str
 
 router = APIRouter()
 
@@ -200,6 +204,69 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             print(f"💰 用户 {user_id} 充值成功！")
 
     return {"status": "success"}
+
+@router.post("/payment/redeem")
+def redeem_code(data: RedeemRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    # 1. 查找代码
+    # 移除空格，转大写，防止用户手误
+    clean_code = data.code.strip().upper()
+    
+    code_record = db.query(RedemptionCode).filter(
+        RedemptionCode.code == clean_code,
+        RedemptionCode.is_used == False
+    ).first()
+    
+    if not code_record:
+        raise HTTPException(status_code=400, detail="无效的兑换码或已被使用")
+    
+    # 2. 找到用户
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user_id).first()
+    if not user_stats:
+        # 如果是新用户还没记录，先创建（虽然理论上登录就有，但防万一）
+        user_stats = UserStats(user_id=user_id)
+        db.add(user_stats)
+    
+    # 3. 计算过期时间
+    days = 30 if code_record.plan_type == 'monthly' else 365
+    
+    # 如果已经是会员且没过期，在现有时间上顺延
+    current_expiry = user_stats.pro_until or datetime.utcnow()
+    if current_expiry < datetime.utcnow():
+        current_expiry = datetime.utcnow()
+        
+    user_stats.is_pro = True
+    user_stats.pro_until = current_expiry + timedelta(days=days)
+    
+    # 4. 标记卡密已用
+    code_record.is_used = True
+    code_record.used_by_user_id = user_id
+    code_record.used_at = datetime.utcnow()
+    
+    db.commit()
+    
+    return {"status": "success", "new_expiry": user_stats.pro_until}
+
+# --- 管理员生成卡密接口 (千万别公开，或者加个密码验证) ---
+# 简单起见，你可以写成一个 python 脚本在本地跑，不放在 api 里。
+# 或者像下面这样加个简单的 secret 验证
+@router.post("/admin/generate_codes")
+def generate_codes(amount: int, plan: str, secret: str):
+    if secret != "chaojifuzamima123456":
+        raise HTTPException(status_code=403)
+        
+    import uuid
+    new_codes = []
+    db = SessionLocal()
+    for _ in range(amount):
+        # 生成类似 VIP-XXXX-XXXX 的码
+        code_str = "VIP-" + str(uuid.uuid4())[:8].upper()
+        rc = RedemptionCode(code=code_str, plan_type=plan)
+        db.add(rc)
+        new_codes.append(code_str)
+    
+    db.commit()
+    db.close()
+    return {"codes": new_codes}
 
 @router.get("/user/dashboard")
 def get_user_dashboard(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):

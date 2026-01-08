@@ -102,3 +102,13 @@ class UserFeedback(Base):
     content = Column(Text)
     contact_email = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class RedemptionCode(Base): # 注意：这里如果用了SQLAlchemy，应该是继承Base
+    __tablename__ = "redemption_codes"
+    id = Column(Integer, primary_key=True)
+    code = Column(String, unique=True)
+    plan_type = Column(String)
+    is_used = Column(Boolean, default=False)
+    used_by_user_id = Column(String, nullable=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
