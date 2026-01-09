@@ -8,4 +8,8 @@ dist/
 *.pyc
 .env.production
 frontend/.env.production
-static/
+# 忽略所有 mp3
+static/audio/*.mp3
+
+# 但不忽略 .gitkeep (从而保留文件夹)
+!static/audio/.gitkeep
