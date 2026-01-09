@@ -86,7 +86,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             <span>{stats.level_display || "中考"}</span>
             <span>▼</span>
           </div>
-          <p className="text-gray-400 text-sm font-medium mb-1">Welcome back,</p>
+          <p className="text-gray-400 text-sm font-medium mb-1">欢迎回来，</p> {/* Welcome back -> 欢迎回来 */}
           <h1 className="text-3xl font-black tracking-tight text-gray-900">{user?.firstName || user?.username || "Scholar"} 👋</h1>
         </div>
 	{/* === 🔥 新增：升级按钮 === */}
@@ -94,7 +94,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
           onClick={handleUpgradeClick}
           className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg hover:scale-105 transition animate-pulse"
         >
-          👑 Upgrade
+          👑 升级会员 {/* Upgrade -> 升级会员 */}
         </button>
 	<div className="scale-125"> {/* 稍微放大一点，更好看 */}
           <UserButton afterSignOutUrl="/" />
@@ -121,7 +121,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
            {/* 背景装饰 */}
            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
            
-           <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">Daily Goal</h3>
+           <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">今日目标</h3> {/* DAILY GOAL -> 今日目标 */}
            <ProgressRing 
               radius={60} 
               stroke={10} 
@@ -136,8 +136,8 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
              title="点击修改目标"
            >
              <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
-               Target ✏️
-             </p>
+               目标 ✏️
+             </p> {/* Target -> 目标 */}
              <p className="font-bold text-lg">{stats.today_task} Words</p>
            </div>
         </div>
@@ -145,17 +145,17 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
         {/* 卡片 B: 连续打卡 (右上) */}
         <div className="bg-orange-50 col-span-1 rounded-[24px] p-4 flex flex-col justify-center items-start border border-orange-100 relative overflow-hidden">
            <div className="absolute right-[-10px] top-[-10px] text-6xl opacity-20">🔥</div>
-           <p className="text-orange-600 text-xs font-bold uppercase">Streak</p>
+           <p className="text-orange-600 text-xs font-bold uppercase">连续打卡</p> {/* STREAK -> 连续打卡 */}
            <div className="flex items-baseline mt-1">
              <span className="text-3xl font-black text-orange-500">{stats.streak_days}</span>
-             <span className="text-xs text-orange-400 ml-1 font-bold">Days</span>
+             <span className="text-xs text-orange-400 ml-1 font-bold">天</span> {/* Days -> 天 */}
            </div>
         </div>
 
         {/* 卡片 C: 总词汇量 (右下) */}
         <div className="bg-blue-50 col-span-1 rounded-[24px] p-4 flex flex-col justify-center items-start border border-blue-100 relative overflow-hidden">
            <div className="absolute right-[-10px] bottom-[-10px] text-6xl opacity-20">🏆</div>
-           <p className="text-blue-600 text-xs font-bold uppercase">Mastered</p>
+           <p className="text-blue-600 text-xs font-bold uppercase">已掌握词汇</p> {/* MASTERED -> 已掌握词汇 */}
            <div className="flex items-baseline mt-1">
              <span className="text-3xl font-black text-blue-500">{stats.total_learned}</span>
              <span className="text-xs text-blue-400 ml-1 font-bold">/ {stats.vocabulary_limit}</span>
@@ -181,7 +181,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
       {/* 3. 总体进度条 (长条) */}
       <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100 mb-8">
         <div className="flex justify-between items-end mb-2">
-          <span className="font-bold text-gray-700">Level Progress</span>
+          <span className="font-bold text-gray-700">等级进度</span> {/* Level Progress -> 等级进度 */}
           <span className="text-sm font-bold text-purple-600">{totalPercent}%</span>
         </div>
         <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
@@ -190,11 +190,11 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             style={{ width: `${totalPercent}%` }}
           ></div>
         </div>
-        <p className="text-xs text-gray-400 mt-2">You are crushing it! Keep going.</p>
+        <p className="text-xs text-gray-400 mt-2">继续加油！你正在变得更强。</p> {/* You are crushing it... -> 中文鼓励语 */}
       </div>
 
       {/* 4. 功能入口 (大按钮) */}
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Start Learning</h3>
+      <h3 className="text-xl font-bold text-gray-900 mb-4">开始学习</h3> {/* Start Learning -> 开始学习 */}
       
       <div className="space-y-4">
         {/* 背单词入口 */}
@@ -206,8 +206,8 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             ⚡️
           </div>
           <div className="ml-4 text-left flex-1">
-            <h4 className="text-lg font-bold text-gray-800">Flashcards</h4>
-            <p className="text-sm text-gray-400">Review today's queue</p>
+            <h4 className="text-lg font-bold text-gray-800">极速背词</h4> {/* Flashcards */}
+            <p className="text-sm text-gray-400">复习今日任务</p> {/* Review today's queue */}
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
             ➜
@@ -223,8 +223,8 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             🧠
           </div>
           <div className="ml-4 text-left flex-1">
-            <h4 className="text-lg font-bold text-gray-800">AI Reading</h4>
-            <p className="text-sm text-gray-400">Contextual learning</p>
+            <h4 className="text-lg font-bold text-gray-800">AI 分级阅读</h4> {/* AI Reading */}
+            <p className="text-sm text-gray-400">语境记忆单词</p> {/* Contextual learning */}
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
             ➜
@@ -240,8 +240,8 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             ✍️
           </div>
           <div className="ml-4 text-left flex-1">
-            <h4 className="text-lg font-bold text-gray-800">Writing</h4>
-            <p className="text-sm text-gray-400">AI correction & feedback</p>
+            <h4 className="text-lg font-bold text-gray-800">写作练习</h4> {/* Writing */}
+            <p className="text-sm text-gray-400">AI 批改与反馈</p> {/*AI correction & feedback */}
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
             ➜
@@ -257,8 +257,8 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
             🔍
           </div>
           <div className="ml-4 text-left flex-1">
-            <h4 className="text-lg font-bold text-gray-800">Grammar Scan</h4>
-            <p className="text-sm text-gray-400">Analyze complex sentences</p>
+            <h4 className="text-lg font-bold text-gray-800">语法分析</h4> {/* Grammar Scan */}
+            <p className="text-sm text-gray-400">分析长难句</p> {/* Analyze complex sentences */}
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
             ➜
