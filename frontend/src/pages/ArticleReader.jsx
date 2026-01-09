@@ -158,7 +158,7 @@ const ArticleReader = ({ articleId, onBack }) => {
              onClick={() => setShowQuiz(true)}
              className="pointer-events-auto bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-purple-200 hover:scale-105 transition-transform flex items-center gap-2 animate-fadeIn"
            >
-             <span>✨</span> AI Challenge
+             <span>✨</span> AI 出题 {/* AI Challenge */}
            </button>
         </div>
       )}

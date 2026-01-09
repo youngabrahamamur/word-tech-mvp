@@ -121,7 +121,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
            {/* 背景装饰 */}
            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
            
-           <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">今日目标</h3> {/* DAILY GOAL -> 今日目标 */}
+           <h3 className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-4">今日收获</h3> {/* DAILY GOAL -> 今日目标 */}
            <ProgressRing 
               radius={60} 
               stroke={10} 
@@ -138,7 +138,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
              <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
                目标 ✏️
              </p> {/* Target -> 目标 */}
-             <p className="font-bold text-lg">{stats.today_task} Words</p>
+             <p className="font-bold text-lg">{stats.today_task} 词</p> {/* Words */}
            </div>
         </div>
 
@@ -171,7 +171,7 @@ const Dashboard = ({ onStartStudy, onStartReading, onOpenMistakes, onStartWritin
              <div className="bg-red-100 p-2 rounded-full text-xl">📕</div>
              <div>
                <h4 className="font-bold text-red-800">错题本</h4>
-               <p className="text-xs text-red-400">Review Mistakes</p>
+               <p className="text-xs text-red-400">回顾阅读错题</p>
              </div>
            </div>
            <div className="text-red-400">➜</div>

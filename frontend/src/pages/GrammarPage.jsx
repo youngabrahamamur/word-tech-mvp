@@ -86,8 +86,8 @@ const GrammarPage = ({ onBack }) => {
         {/* 输入区域 */}
         <div className="bg-white p-6 rounded-3xl shadow-sm mb-6">
           <label className="block text-gray-500 text-sm font-bold mb-2 uppercase">
-            Input Sentence
-          </label>
+            输入句子
+          </label>{/* Input Sentence */}
           <textarea
             className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-lg resize-none"
             rows="4"
@@ -166,7 +166,7 @@ const GrammarPage = ({ onBack }) => {
 	{history.length > 0 && (
             <div id="history-section" className="mt-12 border-t pt-8 border-indigo-100">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-400 text-sm uppercase tracking-wider">Analysis History</h3>
+                    <h3 className="font-bold text-gray-400 text-sm uppercase tracking-wider">历史分析</h3>{/* Analysis History */}
                     <span className="text-xs text-gray-400">点击加载</span>
                 </div>
                 

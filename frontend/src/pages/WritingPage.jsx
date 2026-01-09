@@ -89,7 +89,7 @@ const WritingPage = ({ onBack }) => {
         
         {/* 题目卡片 */}
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-2xl text-white shadow-lg mb-6">
-            <p className="text-blue-100 text-xs font-bold uppercase mb-1">Today's Topic</p>
+            <p className="text-blue-100 text-xs font-bold uppercase mb-1">今日话题</p> {/* Today's Topic */}
             <h2 className="text-2xl font-bold">{topic}</h2>
         </div>
 
@@ -98,7 +98,7 @@ const WritingPage = ({ onBack }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm animate-fadeIn">
                 <textarea 
                     className="w-full h-64 p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-lg leading-relaxed"
-                    placeholder="Start writing here..."
+                    placeholder="开始写作在这里..." {/*"Start writing here..."/*}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     disabled={loading}
@@ -174,7 +174,7 @@ const WritingPage = ({ onBack }) => {
 	{history.length > 0 && (
             <div id="history-section" className="mt-12 border-t pt-8"> {/* <--- ID 加在这里 */}
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-400 text-sm uppercase tracking-wider">Past Writings</h3>
+                    <h3 className="font-bold text-gray-400 text-sm uppercase tracking-wider">过往写作</h3> {/* PAST WRITINGS */}
                     <span className="text-xs text-gray-300">点击卡片回顾</span>
                 </div>
                 
