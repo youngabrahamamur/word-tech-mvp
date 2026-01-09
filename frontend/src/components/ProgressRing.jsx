@@ -41,7 +41,7 @@ const ProgressRing = ({ radius, stroke, progress, total, colorStart = "#6366f1",
       {/* 中间内容 */}
       <div className="absolute text-center flex flex-col items-center">
         <span className="text-3xl font-black text-gray-800">{progress}</span>
-        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Today</span>
+        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">今日</span> {/* Today */}
       </div>
     </div>
   );

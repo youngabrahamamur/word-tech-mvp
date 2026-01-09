@@ -98,11 +98,11 @@ const WritingPage = ({ onBack }) => {
             <div className="bg-white p-4 rounded-2xl shadow-sm animate-fadeIn">
                 <textarea 
                     className="w-full h-64 p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-lg leading-relaxed"
-                    placeholder="开始写作在这里..." {/*"Start writing here..."/*}
+                    placeholder="开始写作在这里..."
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     disabled={loading}
-                ></textarea>
+                ></textarea> {/* Start writing here... */}
                 
                 <div className="mt-4 flex justify-end">
                     <button 

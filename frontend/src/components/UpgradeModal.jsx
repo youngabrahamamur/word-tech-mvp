@@ -46,10 +46,10 @@ const UpgradeModal = ({ onClose }) => {
         {/* 顶部标题区 */}
         <div className="bg-gray-50 p-6 pb-4 border-b border-gray-100 text-center">
           <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-500">
-            Upgrade to Pro
+            升级会员
           </h2>
           <p className="text-gray-500 text-sm mt-1">解锁无限 AI 功能，助力考试通关</p>
-        </div>
+        </div> {/* Upgrade to Pro */}
 
         {/* Tab 切换栏 */}
         <div className="flex border-b border-gray-100">
